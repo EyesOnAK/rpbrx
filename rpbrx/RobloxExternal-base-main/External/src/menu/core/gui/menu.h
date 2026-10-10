@@ -3223,7 +3223,7 @@ inline void RenderWatermark(ImDrawList* dl, int width, float fps)
     }
     if (g_watermarkPlayers && len < (int)sizeof(buf) - 1)
     {
-        int n = (g_proc && g_proc->connected()) ? (int)g_ctx.player_list().size() : 0;
+        int n = (rpbrx::g_proc && rpbrx::g_proc->connected()) ? (int)rpbrx::g_ctx.player_list().size() : 0;
         if (n > 999) n = 999;
         len += snprintf(buf + len, sizeof(buf) - len, " | %d players", n);
     }
