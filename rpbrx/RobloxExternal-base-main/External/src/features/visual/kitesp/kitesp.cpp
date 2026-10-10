@@ -73,7 +73,48 @@ namespace rpbrx::visual::kitesp
 
     static math::vec3 get_entity_pos(node inst)
     {
-        return world::instance_pos(inst);
+        if (!inst) return {};
+        uintptr_t prim = inst.primitive();
+        if (prim) {
+            math::vec3 p = g_proc->read<math::vec3>(prim + Offsets::Primitive::Position);
+            if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
+        }
+        uintptr_t pp = g_proc->read<uintptr_t>(inst.addr + Offsets::Model::PrimaryPart);
+        if (pp) {
+            uintptr_t pprim = g_proc->read<uintptr_t>(pp + Offsets::BasePart::Primitive);
+            if (pprim) {
+                math::vec3 p = g_proc->read<math::vec3>(pprim + Offsets::Primitive::Position);
+                if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
+            }
+        }
+        for (auto& c : inst.children()) {
+            uintptr_t cp = c.primitive();
+            if (cp) {
+                math::vec3 p = g_proc->read<math::vec3>(cp + Offsets::Primitive::Position);
+                if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
+            }
+        }
+        return {};
+    }
+
+    static math::vec3 kit_local_anchor()
+    {
+        if (g_ctx.local_root) {
+            math::vec3 p = g_ctx.local_root.position();
+            if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
+        }
+        if (g_ctx.camera)
+            return g_proc->read<math::vec3>(g_ctx.camera.addr + Offsets::Camera::Position);
+        return {};
+    }
+
+    static bool kit_fetch_view(math::view_matrix& out)
+    {
+        if (!g_proc || !g_proc->connected()) return false;
+        uint64_t vis = g_proc->read<uint64_t>(g_proc->base() + Offsets::VisualEngine::Pointer);
+        if (!vis) return false;
+        out = g_proc->read<math::view_matrix>(vis + Offsets::VisualEngine::ViewMatrix);
+        return true;
     }
 
     static void full_scan()
@@ -81,7 +122,7 @@ namespace rpbrx::visual::kitesp
         if (!g_ctx.workspace || !g_proc || !g_proc->connected())
             return;
 
-        math::vec3 lp = world::local_anchor();
+        math::vec3 lp = kit_local_anchor();
         std::vector<KitEntity> out;
         out.reserve(128);
         std::unordered_set<uintptr_t> seen;
@@ -148,7 +189,7 @@ namespace rpbrx::visual::kitesp
 
     static void fast_refresh()
     {
-        math::vec3 lp = world::local_anchor();
+        math::vec3 lp = kit_local_anchor();
         for (auto it = s_entities.begin(); it != s_entities.end();) {
             uintptr_t par = g_proc->read<uintptr_t>(it->addr + Offsets::Instance::Parent);
             if (!par) {
@@ -185,7 +226,7 @@ namespace rpbrx::visual::kitesp
         if (s_entities.empty()) return;
 
         math::view_matrix view{};
-        if (!world::fetch_view(view)) return;
+        if (!kit_fetch_view(view)) return;
 
         float fw = (float)w;
         float fh = (float)h;
@@ -201,7 +242,7 @@ namespace rpbrx::visual::kitesp
                 settings::kitesp_bg_color[2], settings::kitesp_bg_color[3]))
             : 0;
 
-        math::vec3 lp = world::local_anchor();
+        math::vec3 lp = kit_local_anchor();
 
         for (auto& e : s_entities) {
             if (!is_kit_enabled(e.kitIdx)) continue;
