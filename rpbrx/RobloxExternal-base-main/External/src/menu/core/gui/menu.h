@@ -15,6 +15,7 @@
 #include "../overlay/overlay.h"
 #include "resources/icons.h"
 #include "../../../menu/overlay/settings.h"
+#include "../../../utility/cache/cache.h"
 // removed: player_preview, hitsound, explorer, raycast, cache includes
 namespace S = rpbrx::settings;
 namespace Menu
@@ -51,12 +52,6 @@ inline float g_menuAnim = 0.0f;
 inline bool g_dragging = false;
 inline ImVec2 g_dragOff = ImVec2(0.0f, 0.0f);
 inline ImVec2 g_menuSize = ImVec2(540.0f, 740.0f);
-inline bool g_checkbox1 = false;
-inline bool g_checkbox2 = false;
-inline bool g_checkbox3 = false;
-inline bool g_checkbox4 = false;
-inline bool g_checkbox5 = false;
-inline bool g_subOption1 = false;
 inline bool g_watermark = true;
 inline bool g_watermarkFps = true;
 inline bool g_watermarkPlayers = true;
@@ -86,17 +81,8 @@ inline ImVec2 g_movementPos = ImVec2(20.0f, 320.0f);
 inline ImVec2 g_movementSize = ImVec2(190.0f, 190.0f);
 inline bool g_movementDragging = false;
 inline ImVec2 g_movementDragOff = ImVec2(0.0f, 0.0f);
-inline int g_keybind1_key = 0;
-inline int g_keybind1_mode = 0;
-inline int g_slider1 = 50;
-inline int g_sliderMin = 20;
-inline int g_sliderMax = 80;
-inline int g_dropdown1 = (1 << 0);
 inline char g_textinput1[64] = "";
 inline char g_configName[64] = "default";
-inline ImVec4 g_color1 = ImVec4(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f, 1.0f);
-inline ImVec4 g_colorTeam = ImVec4(110.0f / 255.0f, 220.0f / 255.0f, 120.0f / 255.0f, 1.0f);
-inline ImVec4 g_colorEnemy = ImVec4(240.0f / 255.0f, 110.0f / 255.0f, 120.0f / 255.0f, 1.0f);
 inline int g_themeMask = (1 << 0);
 inline ImVec4 g_accent1 = ImVec4(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f, 1.0f);
 inline ImVec4 g_colFrame = ImVec4(10.0f / 255.0f, 10.0f / 255.0f, 10.0f / 255.0f, 1.0f);
@@ -198,7 +184,6 @@ inline ImU32 AccentAlphaU32(int a)
 inline void ResetThemeColors()
 {
     g_accent1 = ImVec4(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f, 1.0f);
-    g_color1 = ImVec4(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f, 1.0f);
     g_colFrame = ImVec4(10.0f / 255.0f, 10.0f / 255.0f, 10.0f / 255.0f, 1.0f);
     g_colGroup = ImVec4(15.0f / 255.0f, 15.0f / 255.0f, 15.0f / 255.0f, 1.0f);
     g_colCtrl = ImVec4(5.0f / 255.0f, 5.0f / 255.0f, 5.0f / 255.0f, 1.0f);
@@ -265,7 +250,6 @@ inline void ApplyThemePalette(int sel)
         g_colText = ImVec4(255.0f / 255.0f, 242.0f / 255.0f, 230.0f / 255.0f, 1.0f);
         g_colTextDim = ImVec4(190.0f / 255.0f, 170.0f / 255.0f, 150.0f / 255.0f, 1.0f);
     }
-    g_color1 = g_accent1;
 }
 inline float Clamp(float v, float mn, float mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
 
@@ -3239,7 +3223,7 @@ inline void RenderWatermark(ImDrawList* dl, int width, float fps)
     }
     if (g_watermarkPlayers && len < (int)sizeof(buf) - 1)
     {
-        int n = 0;
+        int n = (g_proc && g_proc->connected()) ? (int)g_ctx.player_list().size() : 0;
         if (n > 999) n = 999;
         len += snprintf(buf + len, sizeof(buf) - len, " | %d players", n);
     }
@@ -3682,6 +3666,7 @@ inline void Render()
         if (g_activeTab == 0)
         {
             DrawGroupBox(dl, left_min, left_max, "aim assist", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
+            DrawGroupBox(dl, right_min, right_max, "camera & misc", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
         }
         else if (g_activeTab == 1)
         {
@@ -3753,6 +3738,23 @@ inline void Render()
                 kb_hov |= DrawQuestionButton("##qb_circle", dl, ImVec2(left_max.x - 14.0f, y), circle_items, 4, tab_font, 13.0f);
             }
             y += kCheckRowPitch;
+
+            // -- RIGHT GROUP: Camera & Misc --
+            float ry = right_min.y + 20.0f;
+
+            // FOV (Camera)
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::fov_enabled, "FOV", tab_font, 13.0f);
+            kb_hov |= DrawKeybind("##fov_key", dl, ImVec2(right_max.x - 14.0f, ry), &S::fov_key, &S::fov_key_mode, tab_font, 13.0f);
+            ry += kCheckRowPitch;
+            if (S::fov_enabled)
+            {
+                sl_hov |= DrawSliderFloat("##sl_camerafov", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::fov_value, 30.0f, 120.0f, "FOV", "%.0f", tab_font, 13.0f);
+                ry += 33.0f;
+            }
+
+            // Global Visual Team Check
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::vis_team_check, "Global Team Check", tab_font, 13.0f);
+            ry += kCheckRowPitch;
         }
         // ===== TAB 1: VISUALS =====
         else if (g_activeTab == 1)
@@ -3933,15 +3935,6 @@ inline void Render()
             }
             ry += kCheckRowPitch;
 
-            // FOV
-            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::fov_enabled, "FOV", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##fov_key", dl, ImVec2(right_max.x - 14.0f, ry), &S::fov_key, &S::fov_key_mode, tab_font, 13.0f);
-            ry += kCheckRowPitch;
-            if (S::fov_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_camerafov", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::fov_value, 30.0f, 120.0f, "FOV", "%.0f", tab_font, 13.0f);
-                ry += 33.0f;
-            }
         }
         UpdateThemeFromMask();
 
@@ -4936,7 +4929,7 @@ inline void RenderSettingsPanel()
         bool overBinds = g_keybinds && (m.x >= g_bindsPos.x && m.x <= g_bindsPos.x + g_bindsSize.x && m.y >= g_bindsPos.y && m.y <= g_bindsPos.y + g_bindsSize.y);
         bool overMove = g_movement && (m.x >= g_movementPos.x && m.x <= g_movementPos.x + g_movementSize.x && m.y >= g_movementPos.y && m.y <= g_movementPos.y + g_movementSize.y);
         bool overDebug = g_internalDebug && (m.x >= g_debugPos.x && m.x <= g_debugPos.x + g_debugSize.x && m.y >= g_debugPos.y && m.y <= g_debugPos.y + g_debugSize.y);
-        bool pcb = s1 || s2 || s4 || s5 || s6 || s_wm_qb || s_mov_qb;
+        bool pcb = s1 || s2 || s4 || s5 || s6 || s6b || s_wm_qb || s_mov_qb;
         bool psl = s3;
         bool pdd = s_dd;
         bool pti = s7;
