@@ -294,9 +294,9 @@ namespace rpbrx::visual
                 settings::aim_circle_color[0], settings::aim_circle_color[1],
                 settings::aim_circle_color[2], settings::aim_circle_transparency));
             if (settings::aim_circle_filled) {
-                dl->AddCircleFilled(ImVec2(cx, cy), r, mc, 64);
+                dl->AddCircleFilled(ImVec2(cx, cy), r, mc, 100);
             }
-            dl->AddCircle(ImVec2(cx, cy), r, mc, 64, settings::aim_circle_thickness);
+            dl->AddCircle(ImVec2(cx, cy), r, mc, 100, settings::aim_circle_thickness);
         }
 
         if (!g_ctx.ready) return;
@@ -328,10 +328,11 @@ namespace rpbrx::visual
             g_viewValid = true;
         }
 
+        static uintptr_t localTeamAddr = 0;
         if (need)
         {
-            uintptr_t localTeamAddr = 0;
-            if (settings::esp_team_check && g_ctx.local_player.addr)
+            localTeamAddr = 0;
+            if ((settings::esp_team_check || settings::tracer_team_check || settings::name_team_check || settings::chams_team_check) && g_ctx.local_player.addr)
                 localTeamAddr = g_proc->read<uintptr_t>(g_ctx.local_player.addr + Offsets::Player::Team);
             std::vector<WorldCache> next;
             if (s_pfMode)
@@ -352,6 +353,7 @@ namespace rpbrx::visual
                 {
                     WorldCache wc{};
                     wc.playerAddr = pe.player;
+                    wc.teamAddr = pe.team;
                     if (pe.player == g_ctx.local_player.addr) { next.push_back(std::move(wc)); continue; }
                     if (settings::esp_team_check && localTeamAddr && pe.team && pe.team == localTeamAddr) { next.push_back(std::move(wc)); continue; }
                     if (pe.hp <= 0.f) { next.push_back(std::move(wc)); continue; }
@@ -455,10 +457,6 @@ namespace rpbrx::visual
                 if (studsDist < settings::esp_distance_min || studsDist > settings::esp_distance_max)
                     continue;
             }
-
-            // Team check for tracers
-            bool tracerTeamSkip = false;
-            // (team check already filtered in cache building above for ESP)
 
             float distScale = (std::clamp)(18.0f / (studsDist + 8.0f) + 0.55f, 0.55f, 1.45f);
 
@@ -649,7 +647,7 @@ namespace rpbrx::visual
                 }
             }
 
-            if (settings::chams_enabled)
+            if (settings::chams_enabled && !(settings::chams_team_check && localTeamAddr && wc.teamAddr && wc.teamAddr == localTeamAddr))
                 chams::draw(dl, rc.x0, rc.y0, rc.x1, rc.y1);
 
             if (settings::whitehits_enabled) {
@@ -684,9 +682,8 @@ namespace rpbrx::visual
                     if (studsDist < settings::name_distance_min || studsDist > settings::name_distance_max)
                         nameInRange = false;
                 }
-                if (settings::name_team_check) {
-                    // Already filtered at cache level
-                }
+                if (settings::name_team_check && localTeamAddr && wc.teamAddr && wc.teamAddr == localTeamAddr)
+                    nameInRange = false;
                 if (nameInRange)
                 {
                     ImFont* font = verdana;
@@ -746,29 +743,26 @@ namespace rpbrx::visual
 
                     // Distance prefix: green "[" + white dist + green "]"
                     if (settings::name_show_distance) {
-                        ImU32 greenCol = IM_COL32(0, 255, 0, 255);
+                        ImU32 greenCol = IM_COL32(85, 255, 85, 255);
                         ImU32 whiteCol = IM_COL32(255, 255, 255, 255);
 
-                        // "["
-                        dl->AddText(font, baseFontSize, ImVec2(curX, lineY), greenCol, "[");
+                        DrawVisualText(dl, font, baseFontSize, curX, lineY, greenCol, true, IM_COL32(0,0,0,200), "[");
                         ImVec2 bracketTs = font->CalcTextSizeA(baseFontSize, FLT_MAX, 0.0f, "[");
                         curX += bracketTs.x;
 
-                        // distance number
                         char numBuf[16];
                         snprintf(numBuf, sizeof(numBuf), "%.0f", studsDist);
-                        dl->AddText(font, baseFontSize, ImVec2(curX, lineY), whiteCol, numBuf);
+                        DrawVisualText(dl, font, baseFontSize, curX, lineY, whiteCol, true, IM_COL32(0,0,0,200), numBuf);
                         ImVec2 numTs = font->CalcTextSizeA(baseFontSize, FLT_MAX, 0.0f, numBuf);
                         curX += numTs.x;
 
-                        // "] "
-                        dl->AddText(font, baseFontSize, ImVec2(curX, lineY), greenCol, "] ");
+                        DrawVisualText(dl, font, baseFontSize, curX, lineY, greenCol, true, IM_COL32(0,0,0,200), "] ");
                         ImVec2 closeTs = font->CalcTextSizeA(baseFontSize, FLT_MAX, 0.0f, "] ");
                         curX += closeTs.x;
                     }
 
                     // Name
-                    dl->AddText(font, baseFontSize, ImVec2(curX, lineY), nameCol, wc.name.c_str());
+                    DrawVisualText(dl, font, baseFontSize, curX, lineY, nameCol, true, IM_COL32(0,0,0,200), wc.name.c_str());
                     ImVec2 nameTs = font->CalcTextSizeA(baseFontSize, FLT_MAX, 0.0f, wc.name.c_str());
                     curX += nameTs.x;
 
@@ -777,19 +771,16 @@ namespace rpbrx::visual
                         ImU32 hpCol = health_color_catsix(wc.hp, wc.maxHp);
                         char hpStr[16];
                         snprintf(hpStr, sizeof(hpStr), " %.0f", wc.hp);
-                        dl->AddText(font, baseFontSize, ImVec2(curX, lineY), hpCol, hpStr);
+                        DrawVisualText(dl, font, baseFontSize, curX, lineY, hpCol, true, IM_COL32(0,0,0,200), hpStr);
                     }
                 }
             }
 
             // --- Tracers ---
-            if (settings::tracer_enabled)
+            if (settings::tracer_enabled && !(settings::tracer_team_check && localTeamAddr && wc.teamAddr && wc.teamAddr == localTeamAddr))
             {
-                // Tracer team check
-                if (!settings::tracer_team_check || true) // team already filtered at cache level
-                {
-                    // Tracer distance check
-                    bool tracerInRange = true;
+                // Tracer distance check
+                bool tracerInRange = true;
                     if (settings::tracer_distance_check) {
                         if (studsDist < settings::tracer_distance_min || studsDist > settings::tracer_distance_max)
                             tracerInRange = false;
@@ -847,7 +838,6 @@ namespace rpbrx::visual
                             dl->AddLine(ImVec2(startX, startY), ImVec2(endScreen.x, endScreen.y), tcol, 1.0f);
                         }
                     }
-                }
             }
 
             // Tool display (standalone, below box)

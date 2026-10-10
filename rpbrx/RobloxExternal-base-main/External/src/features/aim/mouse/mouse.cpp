@@ -136,9 +136,9 @@ namespace rpbrx::aim::mouse
             // team check
             if (settings::aim_team_check)
             {
-                int localTeam = g_proc->read<int>(g_ctx.local_player.addr + Offsets::Player::TeamColor);
-                int otherTeam = g_proc->read<int>(entry.addr + Offsets::Player::TeamColor);
-                if (localTeam != 0 && localTeam == otherTeam)
+                uintptr_t localTeam = g_proc->read<uintptr_t>(g_ctx.local_player.addr + Offsets::Player::Team);
+                uintptr_t otherTeam = g_proc->read<uintptr_t>(entry.addr + Offsets::Player::Team);
+                if (localTeam && localTeam == otherTeam)
                     continue;
             }
 

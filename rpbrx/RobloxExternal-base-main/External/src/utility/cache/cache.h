@@ -1361,6 +1361,7 @@ namespace rpbrx::visual
         std::string state{};
         float hp = 0.f;
         float maxHp = 100.f;
+        uintptr_t teamAddr = 0;
 
         data::rect rc3d{};
         bool hasRc3d = false;
@@ -1686,7 +1687,12 @@ namespace rpbrx::pcache
             c.lc = lc;
             c.hp = hp;
             c.maxHp = mx;
-            c.name = pl.name();
+            if (settings::name_use_displayname) {
+                std::string dn = g_proc->read_game_string(pl.addr + Offsets::Player::DisplayName);
+                c.name = dn.empty() ? pl.name() : dn;
+            } else {
+                c.name = pl.name();
+            }
             c.teamStr = team ? node{ team }.name() : std::string{};
             c.isR6 = lc.isR6;
             if (settings::tool_enabled)
