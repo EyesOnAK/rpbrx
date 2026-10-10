@@ -1,5 +1,4 @@
 #include "kitesp.h"
-#include "../world/common.h"
 #include <queue>
 #include <algorithm>
 #include <cmath>
