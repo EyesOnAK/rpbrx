@@ -5,51 +5,58 @@
 
 namespace rpbrx::visual::kitesp
 {
-    // Kit entity containers matching catsix CollectionService tags
+    // Match catsix CollectionService tag names and common instance names
+    // Each entry: { name to match, display label, kit index, whether to scan children }
     // Index: 0=alchemist, 1=beekeeper(bee), 2=bigman, 3=ghost_catcher(ghost),
     //        4=metal_detector(metal), 5=sheep_herder(sheep), 6=sorcerer, 7=star_collector(star)
     struct KitMapping {
-        const char* folderName;
+        const char* matchName;
         const char* displayLabel;
         int kitIdx;
         bool scanChildren;
     };
 
     static const KitMapping kMappings[] = {
-        // Alchemist
-        { "alchemy_crystal",   "Crystal",      0, false },
-        { "AlchemistPotion",   "Potion",       0, false },
-        { "alchemist_item",    "Alchemist",    0, false },
-        // Beekeeper (bee)
-        { "beehive",           "Beehive",      1, false },
-        { "BeeSwarm",          "Bee Swarm",    1, true  },
-        { "bee_flower",        "Flower",       1, false },
-        // Bigman
-        { "BigmanTarget",      "Bigman",       2, false },
-        { "bigman_target",     "Bigman",       2, false },
-        { "bigman",            "Bigman",       2, false },
-        // Ghost catcher (ghost)
-        { "ghost_orb",         "Ghost Orb",    3, false },
-        { "ghost",             "Ghost",        3, false },
-        { "GhostOrb",          "Ghost Orb",    3, false },
-        // Metal detector (metal)
-        { "hidden-metal",      "Metal",        4, false },
-        { "iron",              "Metal",        4, false },
-        { "BuriedMetal",       "Metal",        4, false },
-        { "metal_deposit",     "Metal",        4, false },
-        // Sheep herder (sheep)
-        { "SheepModel",        "Sheep",        5, true  },
-        { "sheep",             "Sheep",        5, false },
-        { "SheepHerder",       "Sheep",        5, true  },
-        // Sorcerer
-        { "sorcerer_orb",      "Sorcerer Orb", 6, false },
-        { "SorcererCrystal",   "Crystal",      6, false },
-        { "sorcerer",          "Sorcerer",     6, false },
-        // Star collector (star)
-        { "stars",             "Star",         7, false },
-        { "crit_star",         "Star",         7, false },
-        { "StarCollector",     "Star",         7, false },
-        { "FallingStar",       "Star",         7, false },
+        // Alchemist (catsix tag: "alchemist_ingedients")
+        { "alchemist_ingedients", "Alchemist",    0, false },
+        { "alchemy_crystal",     "Crystal",       0, false },
+        { "AlchemistPotion",     "Potion",        0, false },
+        { "alchemist_item",      "Alchemist",     0, false },
+        { "wild_flower",         "Flower",        0, false },
+        // Beekeeper (catsix tag: "bee")
+        { "bee",                 "Bee",           1, false },
+        { "beehive",             "Beehive",       1, false },
+        { "BeeSwarm",            "Bee Swarm",     1, true  },
+        { "bee_flower",          "Flower",        1, false },
+        // Bigman (catsix tag: "treeOrb")
+        { "treeOrb",             "Tree Orb",      2, false },
+        { "natures_essence_1",   "Essence",       2, false },
+        { "BigmanTarget",        "Bigman",        2, false },
+        { "bigman_target",       "Bigman",        2, false },
+        { "bigman",              "Bigman",        2, false },
+        // Ghost catcher (catsix tag: "ghost")
+        { "ghost",               "Ghost",         3, false },
+        { "ghost_orb",           "Ghost Orb",     3, false },
+        { "GhostOrb",            "Ghost Orb",     3, false },
+        // Metal detector (catsix tag: "hidden-metal")
+        { "hidden-metal",        "Metal",         4, false },
+        { "iron",                "Iron",          4, false },
+        { "BuriedMetal",         "Metal",         4, false },
+        { "metal_deposit",       "Metal",         4, false },
+        // Sheep herder (catsix tag: "SheepModel")
+        { "SheepModel",          "Sheep",         5, true  },
+        { "sheep",               "Sheep",         5, false },
+        { "SheepHerder",         "Sheep",         5, true  },
+        { "purple_hay_bale",     "Hay Bale",      5, false },
+        // Sorcerer (catsix tag: "alchemy_crystal" - shared with alchemist)
+        { "sorcerer_orb",        "Sorcerer Orb",  6, false },
+        { "SorcererCrystal",     "Crystal",       6, false },
+        { "sorcerer",            "Sorcerer",      6, false },
+        // Star collector (catsix tag: "stars")
+        { "stars",               "Star",          7, false },
+        { "crit_star",           "Star",          7, false },
+        { "StarCollector",       "Star",          7, false },
+        { "FallingStar",         "Star",          7, false },
     };
 
     static std::vector<KitEntity> s_entities;
@@ -69,6 +76,13 @@ namespace rpbrx::visual::kitesp
             case 7: return settings::kitesp_star;
             default: return false;
         }
+    }
+
+    static bool any_kit_enabled()
+    {
+        for (int i = 0; i < 8; ++i)
+            if (is_kit_enabled(i)) return true;
+        return false;
     }
 
     static math::vec3 get_entity_pos(node inst)
@@ -121,27 +135,31 @@ namespace rpbrx::visual::kitesp
     {
         if (!g_ctx.workspace || !g_proc || !g_proc->connected())
             return;
+        if (!any_kit_enabled())
+            return;
 
         math::vec3 lp = kit_local_anchor();
         std::vector<KitEntity> out;
         out.reserve(128);
         std::unordered_set<uintptr_t> seen;
 
+        // BFS from workspace, scanning all children up to depth 8
         std::queue<std::pair<node, int>> q;
         q.push({ g_ctx.workspace, 0 });
         size_t scanned = 0;
+        constexpr int kMaxDepth = 8;
+        constexpr size_t kMaxNodes = 30000;
 
-        while (!q.empty() && scanned < 15000) {
+        while (!q.empty() && scanned < kMaxNodes) {
             auto [cur, depth] = q.front();
             q.pop();
             ++scanned;
             if (!cur) continue;
 
             std::string nm = cur.name();
-            std::string cls = cur.class_name();
 
             for (auto& m : kMappings) {
-                if (nm != m.folderName) continue;
+                if (nm != m.matchName) continue;
                 if (!is_kit_enabled(m.kitIdx)) continue;
 
                 if (m.scanChildren) {
@@ -151,7 +169,7 @@ namespace rpbrx::visual::kitesp
                         math::vec3 p = get_entity_pos(child);
                         if (p.x == 0.0f && p.y == 0.0f && p.z == 0.0f) continue;
                         float d = (p - lp).length();
-                        if (d > 500.0f) continue;
+                        if (d > 800.0f) continue;
                         KitEntity e{};
                         e.addr = child.addr;
                         e.label = m.displayLabel;
@@ -165,7 +183,7 @@ namespace rpbrx::visual::kitesp
                     math::vec3 p = get_entity_pos(cur);
                     if (p.x == 0.0f && p.y == 0.0f && p.z == 0.0f) break;
                     float d = (p - lp).length();
-                    if (d > 500.0f) break;
+                    if (d > 800.0f) break;
                     KitEntity e{};
                     e.addr = cur.addr;
                     e.label = m.displayLabel;
@@ -176,10 +194,19 @@ namespace rpbrx::visual::kitesp
                 break;
             }
 
-            if (depth < 4 && (cls == "Workspace" || cls == "Folder" || cls == "Model")) {
-                for (auto& k : cur.children()) {
-                    if (q.size() > 10000) break;
-                    q.push({ k, depth + 1 });
+            // recurse into children - allow all container types
+            if (depth < kMaxDepth) {
+                std::string cls = cur.class_name();
+                if (cls == "Workspace" || cls == "Folder" || cls == "Model"
+                    || cls == "Configuration" || cls == "ObjectValue"
+                    || cls == "Camera" || cls == "WorldModel"
+                    || cls == "Part" || cls == "MeshPart"
+                    || cls == "BasePart" || cls == "UnionOperation"
+                    || cls.empty()) {
+                    for (auto& k : cur.children()) {
+                        if (q.size() > 20000) break;
+                        q.push({ k, depth + 1 });
+                    }
                 }
             }
         }
@@ -189,7 +216,6 @@ namespace rpbrx::visual::kitesp
 
     static void fast_refresh()
     {
-        math::vec3 lp = kit_local_anchor();
         for (auto it = s_entities.begin(); it != s_entities.end();) {
             uintptr_t par = g_proc->read<uintptr_t>(it->addr + Offsets::Instance::Parent);
             if (!par) {
@@ -218,7 +244,7 @@ namespace rpbrx::visual::kitesp
             if (!s_entities.empty()) fast_refresh();
         }
         if (s_lastScan == std::chrono::steady_clock::time_point{} ||
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastScan).count() >= 3000) {
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastScan).count() >= 2000) {
             s_lastScan = now;
             full_scan();
         }
@@ -259,13 +285,11 @@ namespace rpbrx::visual::kitesp
             float tx = sp.x - ts.x * 0.5f;
             float ty = sp.y - ts.y * 0.5f;
 
-            // Background
             if (settings::kitesp_background) {
                 float pad = 2.0f;
                 dl->AddRectFilled(ImVec2(tx - pad, ty - pad), ImVec2(tx + ts.x + pad, ty + ts.y + pad), bgCol);
             }
 
-            // Shadow outline
             static const ImVec2 offsets[4] = {{-1,-1},{1,-1},{-1,1},{1,1}};
             for (int i = 0; i < 4; ++i)
                 dl->AddText(font, fontSize, ImVec2(tx + offsets[i].x, ty + offsets[i].y), IM_COL32(0,0,0,200), buf);

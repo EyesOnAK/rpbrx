@@ -15,6 +15,7 @@ namespace rpbrx::settings
     inline float aim_circle_thickness = 1.0f;
     inline bool  aim_circle_filled = false;
     inline bool  aim_require_rclick = false;
+    inline bool  aim_show_target = false;
     inline bool  aim_team_check = false;
     inline bool& team_check = aim_team_check;
 

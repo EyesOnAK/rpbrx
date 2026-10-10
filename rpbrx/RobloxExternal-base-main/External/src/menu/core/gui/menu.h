@@ -3733,6 +3733,10 @@ inline void Render()
             cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_require_rclick, "Require Right Click", tab_font, 13.0f);
             y += kCheckRowPitch;
 
+            // Show Target Info
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_show_target, "Show Target Info", tab_font, 13.0f);
+            y += kCheckRowPitch;
+
             // Team Check
             cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_team_check, "Team Check", tab_font, 13.0f);
             y += kCheckRowPitch;
@@ -4116,9 +4120,9 @@ inline std::string BuildConfigPayload(const char* name)
     payload += buf;
 
     // -- Aim Assist --
-    snprintf(buf, sizeof(buf), "aim_enabled=%d\naim_key=%d\naim_key_mode=%d\naim_part=%d\naim_fov=%.2f\naim_speed=%.2f\naim_range_circle=%d\naim_require_rclick=%d\naim_team_check=%d\n",
+    snprintf(buf, sizeof(buf), "aim_enabled=%d\naim_key=%d\naim_key_mode=%d\naim_part=%d\naim_fov=%.2f\naim_speed=%.2f\naim_range_circle=%d\naim_require_rclick=%d\naim_show_target=%d\naim_team_check=%d\n",
         S::aim_enabled ? 1 : 0, S::aim_key, S::aim_key_mode, S::aim_part, (double)S::aim_fov, (double)S::aim_speed,
-        S::aim_range_circle ? 1 : 0, S::aim_require_rclick ? 1 : 0, S::aim_team_check ? 1 : 0);
+        S::aim_range_circle ? 1 : 0, S::aim_require_rclick ? 1 : 0, S::aim_show_target ? 1 : 0, S::aim_team_check ? 1 : 0);
     payload += buf;
 
     snprintf(buf, sizeof(buf), "aim_circle_color=%.4f,%.4f,%.4f,%.4f\naim_circle_transparency=%.2f\naim_circle_thickness=%.2f\naim_circle_filled=%d\n",
@@ -4442,6 +4446,7 @@ inline bool ApplyConfigRaw(const std::string& raw)
     get_float("aim_circle_thickness", S::aim_circle_thickness);
     get_bool("aim_circle_filled", S::aim_circle_filled);
     get_bool("aim_require_rclick", S::aim_require_rclick);
+    get_bool("aim_show_target", S::aim_show_target);
     get_bool("aim_team_check", S::aim_team_check);
 
     // -- ESP --

@@ -18,6 +18,10 @@ namespace rpbrx::aim::mouse
     static std::chrono::steady_clock::time_point s_lastSend{};
     static std::chrono::steady_clock::time_point s_lastFrame{};
 
+    // -- target stickiness (catsix "lock on hit") --
+    static uintptr_t s_lockedTarget = 0;
+    static std::chrono::steady_clock::time_point s_lockTime{};
+
     static void send_mouse_move(float dx, float dy)
     {
         auto now = std::chrono::steady_clock::now();
@@ -101,6 +105,17 @@ namespace rpbrx::aim::mouse
         int wantPart = settings::aim_part;
         float fov = settings::aim_fov;
 
+        // expire target lock after 1 second (catsix: TargetInfo.Targets[Ent] = tick() + 1)
+        bool hasLock = false;
+        if (s_lockedTarget != 0)
+        {
+            auto lockAge = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lockTime).count();
+            if (lockAge > 1000)
+                s_lockedTarget = 0;
+            else
+                hasLock = true;
+        }
+
         // find closest target in FOV circle
         math::vec3 bestWorld{};
         math::vec2 bestScreen{};
@@ -156,9 +171,15 @@ namespace rpbrx::aim::mouse
             float dy = s.y - cy;
             float d = sqrtf(dx * dx + dy * dy);
 
-            if (d < bestDist)
+            if (d > fov)
+                continue;
+
+            // catsix target stickiness: locked target gets magnitude -1 (always wins)
+            float effective = (hasLock && entry.addr == s_lockedTarget) ? -1.0f : d;
+
+            if (effective < bestDist)
             {
-                bestDist = d;
+                bestDist = effective;
                 bestWorld = pos;
                 bestScreen = s;
                 bestPlayer = entry.addr;
@@ -170,9 +191,14 @@ namespace rpbrx::aim::mouse
         {
             s_remX = 0.0f;
             s_remY = 0.0f;
+            s_lockedTarget = 0;
             rpbrx::aim::clear_debug_target();
             return;
         }
+
+        // refresh lock: as long as we're aiming at someone, they stay locked
+        s_lockedTarget = bestPlayer;
+        s_lockTime = now;
 
         rpbrx::aim::set_debug_target(bestWorld, bestPlayer);
 
