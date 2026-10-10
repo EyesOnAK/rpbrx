@@ -3922,6 +3922,9 @@ inline void Render()
                 reinterpret_cast<ImVec4*>(S::kitesp_color), nullptr, nullptr);
             {
                 QuestionItem ke_items[] = {
+                    MakeQSliderFloat("##q_kitscale", "Scale", &S::kitesp_scale, 0.1f, 1.5f, "%.1f"),
+                    MakeQCheckbox("SHOW DISTANCE", &S::kitesp_show_distance),
+                    MakeQCheckbox("BACKGROUND", &S::kitesp_background),
                     MakeQCheckbox("ALCHEMIST", &S::kitesp_alchemist),
                     MakeQCheckbox("BEE", &S::kitesp_bee),
                     MakeQCheckbox("BIGMAN", &S::kitesp_bigman),
@@ -3931,7 +3934,7 @@ inline void Render()
                     MakeQCheckbox("SORCERER", &S::kitesp_sorcerer),
                     MakeQCheckbox("STAR", &S::kitesp_star)
                 };
-                kb_hov |= DrawQuestionButton("##qb_kitesp", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), ke_items, 8, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_kitesp", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), ke_items, 11, tab_font, 13.0f);
             }
             ry += kCheckRowPitch;
 
@@ -4168,8 +4171,9 @@ inline std::string BuildConfigPayload(const char* name)
     payload += buf;
 
     // -- Kit ESP --
-    snprintf(buf, sizeof(buf), "kitesp_enabled=%d\nkitesp_scale=%.2f\nkitesp_background=%d\nkitesp_alchemist=%d\nkitesp_bee=%d\nkitesp_bigman=%d\nkitesp_ghost=%d\nkitesp_metal=%d\nkitesp_sheep=%d\nkitesp_sorcerer=%d\nkitesp_star=%d\n",
+    snprintf(buf, sizeof(buf), "kitesp_enabled=%d\nkitesp_scale=%.2f\nkitesp_background=%d\nkitesp_show_distance=%d\nkitesp_alchemist=%d\nkitesp_bee=%d\nkitesp_bigman=%d\nkitesp_ghost=%d\nkitesp_metal=%d\nkitesp_sheep=%d\nkitesp_sorcerer=%d\nkitesp_star=%d\n",
         S::kitesp_enabled ? 1 : 0, (double)S::kitesp_scale, S::kitesp_background ? 1 : 0,
+        S::kitesp_show_distance ? 1 : 0,
         S::kitesp_alchemist ? 1 : 0, S::kitesp_bee ? 1 : 0, S::kitesp_bigman ? 1 : 0,
         S::kitesp_ghost ? 1 : 0, S::kitesp_metal ? 1 : 0, S::kitesp_sheep ? 1 : 0,
         S::kitesp_sorcerer ? 1 : 0, S::kitesp_star ? 1 : 0);
@@ -4489,6 +4493,7 @@ inline bool ApplyConfigRaw(const std::string& raw)
     get_col_arr("kitesp_color", S::kitesp_color);
     get_float("kitesp_scale", S::kitesp_scale);
     get_bool("kitesp_background", S::kitesp_background);
+    get_bool("kitesp_show_distance", S::kitesp_show_distance);
     get_col_arr("kitesp_bg_color", S::kitesp_bg_color);
     get_bool("kitesp_alchemist", S::kitesp_alchemist);
     get_bool("kitesp_bee", S::kitesp_bee);

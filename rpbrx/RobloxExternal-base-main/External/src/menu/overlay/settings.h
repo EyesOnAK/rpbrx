@@ -69,6 +69,7 @@ namespace rpbrx::settings
     inline float kitesp_scale = 1.0f;
     inline bool  kitesp_background = true;
     inline float kitesp_bg_color[4] = { 0.0f, 0.0f, 0.0f, 0.5f };
+    inline bool  kitesp_show_distance = true;
     inline bool  kitesp_alchemist = true;
     inline bool  kitesp_bee = true;
     inline bool  kitesp_bigman = true;

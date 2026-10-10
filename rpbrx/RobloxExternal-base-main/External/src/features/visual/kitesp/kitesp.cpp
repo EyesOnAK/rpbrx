@@ -5,10 +5,15 @@
 
 namespace rpbrx::visual::kitesp
 {
-    // Match catsix CollectionService tag names and common instance names
-    // Each entry: { name to match, display label, kit index, whether to scan children }
-    // Index: 0=alchemist, 1=beekeeper(bee), 2=bigman, 3=ghost_catcher(ghost),
-    //        4=metal_detector(metal), 5=sheep_herder(sheep), 6=sorcerer, 7=star_collector(star)
+    // Catsix KitESP uses CollectionService:GetTagged(tag) to find objects.
+    // External can't call CollectionService, so we BFS-scan Workspace by instance name.
+    //
+    // Each mapping: { instance name to match, display label, kit index, scanChildren flag }
+    // When scanChildren is true, the matched container's children are the actual entities
+    // (e.g. SheepModel is a folder holding individual sheep models).
+    //
+    // Kit indices: 0=alchemist, 1=beekeeper, 2=bigman(elder tree), 3=ghost_catcher,
+    //              4=metal_detector, 5=sheep_herder, 6=sorcerer, 7=star_collector
     struct KitMapping {
         const char* matchName;
         const char* displayLabel;
@@ -17,46 +22,33 @@ namespace rpbrx::visual::kitesp
     };
 
     static const KitMapping kMappings[] = {
-        // Alchemist (catsix tag: "alchemist_ingedients")
-        { "alchemist_ingedients", "Alchemist",    0, false },
-        { "alchemy_crystal",     "Crystal",       0, false },
-        { "AlchemistPotion",     "Potion",        0, false },
-        { "alchemist_item",      "Alchemist",     0, false },
-        { "wild_flower",         "Flower",        0, false },
-        // Beekeeper (catsix tag: "bee")
-        { "bee",                 "Bee",           1, false },
-        { "beehive",             "Beehive",       1, false },
-        { "BeeSwarm",            "Bee Swarm",     1, true  },
-        { "bee_flower",          "Flower",        1, false },
-        // Bigman (catsix tag: "treeOrb")
-        { "treeOrb",             "Tree Orb",      2, false },
-        { "natures_essence_1",   "Essence",       2, false },
-        { "BigmanTarget",        "Bigman",        2, false },
-        { "bigman_target",       "Bigman",        2, false },
-        { "bigman",              "Bigman",        2, false },
-        // Ghost catcher (catsix tag: "ghost")
-        { "ghost",               "Ghost",         3, false },
-        { "ghost_orb",           "Ghost Orb",     3, false },
-        { "GhostOrb",            "Ghost Orb",     3, false },
-        // Metal detector (catsix tag: "hidden-metal")
-        { "hidden-metal",        "Metal",         4, false },
-        { "iron",                "Iron",          4, false },
-        { "BuriedMetal",         "Metal",         4, false },
-        { "metal_deposit",       "Metal",         4, false },
-        // Sheep herder (catsix tag: "SheepModel")
-        { "SheepModel",          "Sheep",         5, true  },
-        { "sheep",               "Sheep",         5, false },
-        { "SheepHerder",         "Sheep",         5, true  },
-        { "purple_hay_bale",     "Hay Bale",      5, false },
-        // Sorcerer (catsix tag: "alchemy_crystal" - shared with alchemist)
-        { "sorcerer_orb",        "Sorcerer Orb",  6, false },
-        { "SorcererCrystal",     "Crystal",       6, false },
-        { "sorcerer",            "Sorcerer",      6, false },
-        // Star collector (catsix tag: "stars")
-        { "stars",               "Star",          7, false },
-        { "crit_star",           "Star",          7, false },
-        { "StarCollector",       "Star",          7, false },
-        { "FallingStar",         "Star",          7, false },
+        // Alchemist — catsix tag: "alchemist_ingedients" (sic), icon: "wild_flower"
+        { "alchemist_ingedients", "Ingredient",    0, false },
+        { "alchemy_crystal",     "Crystal",        0, false },
+        { "wild_flower",         "Flower",         0, false },
+        // Beekeeper — catsix tag: "bee", icon: "bee"
+        { "bee",                 "Bee",            1, false },
+        { "beehive",             "Beehive",        1, false },
+        { "BeeSwarm",            "Bee Swarm",      1, true  },
+        // Bigman / Elder Tree — catsix tag: "treeOrb", icon: "natures_essence_1"
+        { "treeOrb",             "Tree Orb",       2, false },
+        { "natures_essence_1",   "Essence",        2, false },
+        // Ghost Catcher — catsix tag: "ghost", icon: "ghost_orb"
+        { "ghost",               "Ghost",          3, false },
+        { "ghost_orb",           "Ghost Orb",      3, false },
+        // Metal Detector — catsix tag: "hidden-metal", icon: "iron"
+        { "hidden-metal",        "Metal",          4, false },
+        { "iron",                "Iron",           4, false },
+        // Sheep Herder — catsix tag: "SheepModel", icon: "purple_hay_bale"
+        { "SheepModel",          "Sheep",          5, true  },
+        { "purple_hay_bale",     "Hay Bale",       5, false },
+        // Sorcerer — catsix tag: "alchemy_crystal", icon: "wild_flower"
+        { "sorcerer_orb",        "Sorcerer Orb",   6, false },
+        { "SorcererCrystal",     "Crystal",        6, false },
+        // Star Collector — catsix tag: "stars", icon: "crit_star"
+        { "stars",               "Star",           7, false },
+        { "crit_star",           "Star",           7, false },
+        { "FallingStar",         "Star",           7, false },
     };
 
     static std::vector<KitEntity> s_entities;
@@ -88,11 +80,13 @@ namespace rpbrx::visual::kitesp
     static math::vec3 get_entity_pos(node inst)
     {
         if (!inst) return {};
+
         uintptr_t prim = inst.primitive();
         if (prim) {
             math::vec3 p = g_proc->read<math::vec3>(prim + Offsets::Primitive::Position);
             if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
         }
+
         uintptr_t pp = g_proc->read<uintptr_t>(inst.addr + Offsets::Model::PrimaryPart);
         if (pp) {
             uintptr_t pprim = g_proc->read<uintptr_t>(pp + Offsets::BasePart::Primitive);
@@ -101,6 +95,7 @@ namespace rpbrx::visual::kitesp
                 if (!(p.x == 0.0f && p.y == 0.0f && p.z == 0.0f)) return p;
             }
         }
+
         for (auto& c : inst.children()) {
             uintptr_t cp = c.primitive();
             if (cp) {
@@ -138,23 +133,24 @@ namespace rpbrx::visual::kitesp
         if (!any_kit_enabled())
             return;
 
-        math::vec3 lp = kit_local_anchor();
         std::vector<KitEntity> out;
         out.reserve(128);
         std::unordered_set<uintptr_t> seen;
 
-        // BFS from workspace, scanning all children up to depth 8
+        // BFS from Workspace — no class whitelist, no distance filter.
+        // Catsix uses CollectionService which searches globally; we approximate
+        // by walking the full Workspace tree up to depth/node limits.
         std::queue<std::pair<node, int>> q;
         q.push({ g_ctx.workspace, 0 });
         size_t scanned = 0;
-        constexpr int kMaxDepth = 8;
-        constexpr size_t kMaxNodes = 30000;
+        constexpr int kMaxDepth = 10;
+        constexpr size_t kMaxNodes = 50000;
 
         while (!q.empty() && scanned < kMaxNodes) {
             auto [cur, depth] = q.front();
             q.pop();
-            ++scanned;
             if (!cur) continue;
+            ++scanned;
 
             std::string nm = cur.name();
 
@@ -168,8 +164,6 @@ namespace rpbrx::visual::kitesp
                         seen.insert(child.addr);
                         math::vec3 p = get_entity_pos(child);
                         if (p.x == 0.0f && p.y == 0.0f && p.z == 0.0f) continue;
-                        float d = (p - lp).length();
-                        if (d > 800.0f) continue;
                         KitEntity e{};
                         e.addr = child.addr;
                         e.label = m.displayLabel;
@@ -182,8 +176,6 @@ namespace rpbrx::visual::kitesp
                     seen.insert(cur.addr);
                     math::vec3 p = get_entity_pos(cur);
                     if (p.x == 0.0f && p.y == 0.0f && p.z == 0.0f) break;
-                    float d = (p - lp).length();
-                    if (d > 800.0f) break;
                     KitEntity e{};
                     e.addr = cur.addr;
                     e.label = m.displayLabel;
@@ -194,19 +186,13 @@ namespace rpbrx::visual::kitesp
                 break;
             }
 
-            // recurse into children - allow all container types
+            // Recurse into ALL children regardless of class.
+            // CollectionService finds tagged instances anywhere — we can't filter
+            // by class without risking missing objects nested inside unknown types.
             if (depth < kMaxDepth) {
-                std::string cls = cur.class_name();
-                if (cls == "Workspace" || cls == "Folder" || cls == "Model"
-                    || cls == "Configuration" || cls == "ObjectValue"
-                    || cls == "Camera" || cls == "WorldModel"
-                    || cls == "Part" || cls == "MeshPart"
-                    || cls == "BasePart" || cls == "UnionOperation"
-                    || cls.empty()) {
-                    for (auto& k : cur.children()) {
-                        if (q.size() > 20000) break;
-                        q.push({ k, depth + 1 });
-                    }
+                for (auto& k : cur.children()) {
+                    if (q.size() > 40000) break;
+                    q.push({ k, depth + 1 });
                 }
             }
         }
@@ -238,6 +224,7 @@ namespace rpbrx::visual::kitesp
         if (!g_proc || !g_proc->connected() || !g_ctx.workspace) return;
 
         auto now = std::chrono::steady_clock::now();
+
         if (s_lastFast == std::chrono::steady_clock::time_point{} ||
             std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastFast).count() >= 150) {
             s_lastFast = now;
@@ -269,6 +256,7 @@ namespace rpbrx::visual::kitesp
             : 0;
 
         math::vec3 lp = kit_local_anchor();
+        bool showDist = settings::kitesp_show_distance;
 
         for (auto& e : s_entities) {
             if (!is_kit_enabled(e.kitIdx)) continue;
@@ -277,17 +265,24 @@ namespace rpbrx::visual::kitesp
             if (!projection::to_screen(e.pos, view, fw, fh, sp)) continue;
             if (sp.x < -50.0f || sp.x > fw + 50.0f || sp.y < -50.0f || sp.y > fh + 50.0f) continue;
 
-            float dist = (e.pos - lp).length();
             char buf[64];
-            snprintf(buf, sizeof(buf), "%s [%.0f]", e.label.c_str(), dist);
+            if (showDist) {
+                float dist = (e.pos - lp).length();
+                snprintf(buf, sizeof(buf), "%s [%.0f]", e.label.c_str(), dist);
+            } else {
+                snprintf(buf, sizeof(buf), "%s", e.label.c_str());
+            }
 
             ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, buf);
             float tx = sp.x - ts.x * 0.5f;
             float ty = sp.y - ts.y * 0.5f;
 
             if (settings::kitesp_background) {
-                float pad = 2.0f;
-                dl->AddRectFilled(ImVec2(tx - pad, ty - pad), ImVec2(tx + ts.x + pad, ty + ts.y + pad), bgCol);
+                float pad = 3.0f;
+                dl->AddRectFilled(
+                    ImVec2(tx - pad, ty - pad),
+                    ImVec2(tx + ts.x + pad, ty + ts.y + pad),
+                    bgCol, 4.0f);
             }
 
             static const ImVec2 offsets[4] = {{-1,-1},{1,-1},{-1,1},{1,1}};
