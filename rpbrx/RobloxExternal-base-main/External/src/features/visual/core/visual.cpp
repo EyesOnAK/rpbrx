@@ -152,14 +152,14 @@ namespace rpbrx::visual
     // Catsix health color: HSV where H = clamp(hp/maxHp, 0, 1) / 2.5, S = 0.89, V = 0.75
     static inline ImU32 health_color_catsix(float hp, float maxHp)
     {
-        float frac = (maxHp > 0.01f) ? std::clamp(hp / maxHp, 0.0f, 1.0f) : 1.0f;
+        float frac = (maxHp > 0.01f) ? (std::clamp)(hp / maxHp, 0.0f, 1.0f) : 1.0f;
         return hsv_to_col(frac / 2.5f, 0.89f, 0.75f);
     }
 
     // Distance color for tracers: HSV(min(distance/128 / 2.8, 0.4), 0.89, 0.75)
     static inline ImU32 distance_color_catsix(float studs)
     {
-        float h = std::min(studs / 128.0f / 2.8f, 0.4f);
+        float h = (std::min)(studs / 128.0f / 2.8f, 0.4f);
         return hsv_to_col(h, 0.89f, 0.75f);
     }
 
@@ -460,7 +460,7 @@ namespace rpbrx::visual
             bool tracerTeamSkip = false;
             // (team check already filtered in cache building above for ESP)
 
-            float distScale = std::clamp(18.0f / (studsDist + 8.0f) + 0.55f, 0.55f, 1.45f);
+            float distScale = (std::clamp)(18.0f / (studsDist + 8.0f) + 0.55f, 0.55f, 1.45f);
 
             // Build 2D bounding rect
             data::rect rc{};
@@ -814,8 +814,8 @@ namespace rpbrx::visual
                             float len = sqrtf(dx*dx + dy*dy);
                             if (len > 1.0f) {
                                 dx /= len; dy /= len;
-                                endScreen.x = std::clamp(cx + dx * (fw * 0.48f), 0.0f, fw);
-                                endScreen.y = std::clamp(cy + dy * (fh * 0.48f), 0.0f, fh);
+                                endScreen.x = (std::clamp)(cx + dx * (fw * 0.48f), 0.0f, fw);
+                                endScreen.y = (std::clamp)(cy + dy * (fh * 0.48f), 0.0f, fh);
                                 endVis = true;
                             }
                         }
