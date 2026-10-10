@@ -13,12 +13,12 @@ namespace rpbrx::visual::headdot
         if (!projection::to_screen(head, view, screen_w, screen_h, hs)) return;
         const float r = settings::headdot_thickness * distScale;
         if (settings::headdot_fill) {
-            ImU32 hcol = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_color[0], settings::headdot_color[1], settings::headdot_color[2], 1.0f));
-            ImU32 hoc = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_outline_color[0], settings::headdot_outline_color[1], settings::headdot_outline_color[2], 1.0f));
+            ImU32 hcol = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_color[0], settings::headdot_color[1], settings::headdot_color[2], settings::headdot_color[3]));
+            ImU32 hoc = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_outline_color[0], settings::headdot_outline_color[1], settings::headdot_outline_color[2], settings::headdot_outline_color[3]));
             if (settings::headdot_outline) dl->AddCircleFilled(ImVec2(hs.x, hs.y), r + 1.0f*distScale, hoc);
             dl->AddCircleFilled(ImVec2(hs.x, hs.y), r, hcol);
         } else if (settings::headdot_outline) {
-            ImU32 hoc = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_outline_color[0], settings::headdot_outline_color[1], settings::headdot_outline_color[2], 1.0f));
+            ImU32 hoc = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::headdot_outline_color[0], settings::headdot_outline_color[1], settings::headdot_outline_color[2], settings::headdot_outline_color[3]));
             dl->AddCircle(ImVec2(hs.x, hs.y), r, hoc, 0, 1.5f*distScale);
         }
     }

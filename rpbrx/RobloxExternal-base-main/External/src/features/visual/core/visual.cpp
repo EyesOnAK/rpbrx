@@ -11,6 +11,7 @@
 #include "../whitehits/whitehits.h"
 #include "../footsteps/footsteps.h"
 #include "../kitesp/kitesp.h"
+#include "../../aim/core/aim.h"
 #include "../../../menu/resources/font.h"
 #include <vector>
 #include <chrono>
@@ -303,7 +304,7 @@ namespace rpbrx::visual
         if (!settings::esp_enabled && !settings::skeleton_enabled && !settings::health_enabled
             && !settings::name_enabled && !settings::headdot_enabled && !settings::tool_enabled
             && !settings::tracer_enabled && !settings::chams_enabled && !settings::whitehits_enabled
-            && !settings::footsteps_enabled)
+            && !settings::footsteps_enabled && !settings::kitesp_enabled)
             return;
 
         float fw = (float)w;
@@ -444,6 +445,22 @@ namespace rpbrx::visual
             skelCol = ImGui::ColorConvertFloat4ToU32(ImVec4(settings::skeleton_color[0], settings::skeleton_color[1], settings::skeleton_color[2], settings::skeleton_color[3]));
         }
         ImFont* verdana = g_verdanaFont ? g_verdanaFont : ImGui::GetFont();
+
+        if (settings::aim_show_target)
+        {
+            math::vec3 tw;
+            if (rpbrx::aim::debug_target(tw))
+            {
+                math::vec2 ts;
+                if (projection::to_screen(tw, view, fw, fh, ts))
+                {
+                    ImU32 markerCol = IM_COL32(255, 255, 0, 200);
+                    float sz = 6.0f;
+                    dl->AddLine(ImVec2(ts.x - sz, ts.y), ImVec2(ts.x + sz, ts.y), markerCol, 1.5f);
+                    dl->AddLine(ImVec2(ts.x, ts.y - sz), ImVec2(ts.x, ts.y + sz), markerCol, 1.5f);
+                }
+            }
+        }
 
         for (auto& wc : g_world)
         {
@@ -647,7 +664,7 @@ namespace rpbrx::visual
                 }
             }
 
-            if (settings::chams_enabled && !(settings::chams_team_check && localTeamAddr && wc.teamAddr && wc.teamAddr == localTeamAddr))
+            if (settings::chams_enabled && settings::chams_render_walls && !(settings::chams_team_check && localTeamAddr && wc.teamAddr && wc.teamAddr == localTeamAddr))
                 chams::draw(dl, rc.x0, rc.y0, rc.x1, rc.y1);
 
             if (settings::whitehits_enabled) {
@@ -829,6 +846,8 @@ namespace rpbrx::visual
                             ImU32 tcol;
                             if (settings::tracer_color_by_distance) {
                                 tcol = distance_color_catsix(studsDist);
+                                float a = 1.0f - settings::tracer_transparency;
+                                tcol = (tcol & 0x00FFFFFFu) | (static_cast<ImU32>(a * 255.0f) << 24);
                             } else {
                                 tcol = ImGui::ColorConvertFloat4ToU32(ImVec4(
                                     settings::tracer_color[0], settings::tracer_color[1],
