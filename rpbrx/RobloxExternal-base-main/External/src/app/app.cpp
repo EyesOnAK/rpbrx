@@ -5,10 +5,6 @@
 #include "../utility/global/globals.h"
 #include "../utility/cache/cache.h"
 #include "../utility/logger/logger.h"
-#include "../features/misc/freecam/freecam.h"
-#include "../features/aim/viewport/viewport.h"
-#include "../features/aim/raycast/raycast.h"
-#include "../features/aim/wraith/wraith.h"
 #include <Windows.h>
 #include <atomic>
 #include <iostream>
@@ -68,15 +64,7 @@ namespace rpbrx::app
         overlay.SetStreamProof(g_streamProof);
         Overlay::SetMenuOpen(true);
 
-        std::atomic<bool> stopFreecam{ false };
-        std::thread freecamThread(rpbrx::misc::freecam::thread_main, std::ref(stopFreecam));
-
         overlay.Run();
-        stopFreecam.store(true, std::memory_order_relaxed);
-        if (freecamThread.joinable()) freecamThread.join();
-        rpbrx::aim::viewport::shutdown();
-        rpbrx::aim::raycast::shutdown();
-        rpbrx::aim::wraith::shutdown();
         stopWatcher.store(true);
         if (watcher.joinable()) watcher.join();
         stopTargetWatch.store(true);
