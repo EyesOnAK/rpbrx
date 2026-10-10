@@ -1,9 +1,5 @@
 #include "aim.h"
 #include "../mouse/mouse.h"
-#include "../viewport/viewport.h"
-#include "../raycast/raycast.h"
-#include "../wraith/wraith.h"
-#include "../autoshoot/autoshoot.h"
 #include "../../../menu/overlay/settings.h"
 #include "../../../menu/core/gui/menu.h"
 #include <Windows.h>
@@ -51,7 +47,6 @@ namespace rpbrx::aim
 
     void clear_debug_target()
     {
-
         s_hasDebugTarget = false;
         s_debugPlayer = 0;
     }
@@ -98,85 +93,42 @@ namespace rpbrx::aim
     {
         switch (partIdx)
         {
-        case 0:
-            return character.find_child("Head");
-        case 1:
-        {
-            node t = character.find_child("UpperTorso");
-            if (!t) t = character.find_child("Torso");
-            if (!t) t = character.find_child("HumanoidRootPart");
-            return t;
-        }
-        case 2:
+        case 0: // RootPart (catsix mapping)
         {
             node hrp = character.find_child("HumanoidRootPart");
             if (!hrp) hrp = character.find_child("Torso");
             if (!hrp) hrp = character.find_child("UpperTorso");
             return hrp;
         }
-        case 3:
-        {
-            node a = character.find_child("LeftUpperArm");
-            if (!a) a = character.find_child("Left Arm");
-            if (!a) a = character.find_child("LeftLowerArm");
-            return a;
-        }
-        case 4:
-        {
-            node a = character.find_child("RightUpperArm");
-            if (!a) a = character.find_child("Right Arm");
-            if (!a) a = character.find_child("RightLowerArm");
-            return a;
-        }
-        case 5:
-        {
-            node l = character.find_child("LeftUpperLeg");
-            if (!l) l = character.find_child("Left Leg");
-            if (!l) l = character.find_child("LeftLowerLeg");
-            return l;
-        }
-        case 6:
-        {
-            node l = character.find_child("RightUpperLeg");
-            if (!l) l = character.find_child("Right Leg");
-            if (!l) l = character.find_child("RightLowerLeg");
-            return l;
-        }
-        default:
+        case 1: // Head
             return character.find_child("Head");
+        default:
+        {
+            node hrp = character.find_child("HumanoidRootPart");
+            if (!hrp) hrp = character.find_child("Torso");
+            return hrp;
+        }
         }
     }
 
     void run(int w, int h)
     {
-        bool keyOn = settings::aim_enabled && Menu::IsMenuKeyActive("##aim_key", settings::aim_key, settings::aim_key_mode);
-        if (keyOn && settings::aim_method == 0)
-            mouse::run(w, h);
-        else if (keyOn && settings::aim_method == 1)
-            viewport::run(w, h);
-        else if (keyOn && settings::aim_method == 2)
-            raycast::run(w, h);
-        else if (keyOn && settings::aim_method == 3)
-            wraith::run(w, h);
-        else
-        {
-            viewport::clear();
-            clear_debug_target();
-        }
-        if (settings::aim_method != 1)
-            viewport::clear();
-        if (settings::aim_method != 2 || !keyOn)
-            raycast::idle();
-        if (settings::aim_method != 3 || !keyOn)
-            wraith::idle();
+        bool keyOn = settings::aim_enabled
+            && Menu::IsMenuKeyActive("##aim_key", settings::aim_key, settings::aim_key_mode);
 
-        if (settings::aim_autoshoot)
+        if (!keyOn)
         {
-            bool keyActive = (settings::aim_autoshoot_key == 0) || Menu::IsMenuKeyActive("##autoshoot_key", settings::aim_autoshoot_key, settings::aim_autoshoot_key_mode);
-            if (keyActive)
-            {
-                autoshoot::run(w, h);
-            }
+            clear_debug_target();
+            return;
         }
+
+        // Optional right-click gate
+        if (settings::aim_require_rclick && !(GetAsyncKeyState(VK_RBUTTON) & 0x8000))
+        {
+            clear_debug_target();
+            return;
+        }
+
+        mouse::run(w, h);
     }
 }

@@ -6,9 +6,9 @@
 
 namespace rpbrx::visual::kitesp
 {
-    // Kit entity containers found in workspace (from game dump analysis)
-    // Maps workspace folder/model names to { display_label, settings_index }
-    // Index: 0=beekeeper, 1=metal_detector, 2=sheep_herder, 3=eldertree, 4=ghost_catcher, 5=sorcerer, 6=star_collector
+    // Kit entity containers matching catsix CollectionService tags
+    // Index: 0=alchemist, 1=beekeeper(bee), 2=bigman, 3=ghost_catcher(ghost),
+    //        4=metal_detector(metal), 5=sheep_herder(sheep), 6=sorcerer, 7=star_collector(star)
     struct KitMapping {
         const char* folderName;
         const char* displayLabel;
@@ -17,24 +17,40 @@ namespace rpbrx::visual::kitesp
     };
 
     static const KitMapping kMappings[] = {
-        // Beekeeper — workspace folder "SheepModel" holds sheep, bees are tagged, beehives are models
-        { "beehive",           "Beehive",      0, false },
-        // Metal detector — hidden metal entities
-        { "hidden-metal",      "Iron",         1, false },
-        { "iron",              "Iron",         1, false },
-        // Sheep herder — SheepModel folder children
-        { "SheepModel",        "Sheep",        2, true  },
-        // Eldertree — tree orbs
-        { "TreeOrb",           "Tree Orb",     3, false },
-        { "treeOrb",           "Tree Orb",     3, false },
-        // Ghost catcher
-        { "ghost_orb",         "Ghost Orb",    4, false },
-        { "ghost",             "Ghost",        4, false },
+        // Alchemist
+        { "alchemy_crystal",   "Crystal",      0, false },
+        { "AlchemistPotion",   "Potion",       0, false },
+        { "alchemist_item",    "Alchemist",    0, false },
+        // Beekeeper (bee)
+        { "beehive",           "Beehive",      1, false },
+        { "BeeSwarm",          "Bee Swarm",    1, true  },
+        { "bee_flower",        "Flower",       1, false },
+        // Bigman
+        { "BigmanTarget",      "Bigman",       2, false },
+        { "bigman_target",     "Bigman",       2, false },
+        { "bigman",            "Bigman",       2, false },
+        // Ghost catcher (ghost)
+        { "ghost_orb",         "Ghost Orb",    3, false },
+        { "ghost",             "Ghost",        3, false },
+        { "GhostOrb",          "Ghost Orb",    3, false },
+        // Metal detector (metal)
+        { "hidden-metal",      "Metal",        4, false },
+        { "iron",              "Metal",        4, false },
+        { "BuriedMetal",       "Metal",        4, false },
+        { "metal_deposit",     "Metal",        4, false },
+        // Sheep herder (sheep)
+        { "SheepModel",        "Sheep",        5, true  },
+        { "sheep",             "Sheep",        5, false },
+        { "SheepHerder",       "Sheep",        5, true  },
         // Sorcerer
-        { "alchemy_crystal",   "Crystal",      5, false },
-        // Star collector
-        { "stars",             "Star",         6, false },
-        { "crit_star",         "Star",         6, false },
+        { "sorcerer_orb",      "Sorcerer Orb", 6, false },
+        { "SorcererCrystal",   "Crystal",      6, false },
+        { "sorcerer",          "Sorcerer",     6, false },
+        // Star collector (star)
+        { "stars",             "Star",         7, false },
+        { "crit_star",         "Star",         7, false },
+        { "StarCollector",     "Star",         7, false },
+        { "FallingStar",       "Star",         7, false },
     };
 
     static std::vector<KitEntity> s_entities;
@@ -44,13 +60,14 @@ namespace rpbrx::visual::kitesp
     static bool is_kit_enabled(int idx)
     {
         switch (idx) {
-            case 0: return settings::kitesp_bee;
-            case 1: return settings::kitesp_metal;
-            case 2: return settings::kitesp_sheep;
-            case 3: return settings::kitesp_elder;
-            case 4: return settings::kitesp_ghost;
-            case 5: return settings::kitesp_sorcerer;
-            case 6: return settings::kitesp_star;
+            case 0: return settings::kitesp_alchemist;
+            case 1: return settings::kitesp_bee;
+            case 2: return settings::kitesp_bigman;
+            case 3: return settings::kitesp_ghost;
+            case 4: return settings::kitesp_metal;
+            case 5: return settings::kitesp_sheep;
+            case 6: return settings::kitesp_sorcerer;
+            case 7: return settings::kitesp_star;
             default: return false;
         }
     }
@@ -174,15 +191,15 @@ namespace rpbrx::visual::kitesp
         float fw = (float)w;
         float fh = (float)h;
         ImFont* font = g_verdanaFont ? g_verdanaFont : ImGui::GetFont();
-        float fontSize = 13.0f;
+        float fontSize = 13.0f * settings::kitesp_scale;
 
         ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(
             settings::kitesp_color[0], settings::kitesp_color[1],
             settings::kitesp_color[2], settings::kitesp_color[3]));
-        ImU32 ocol = settings::kitesp_outline ?
-            ImGui::ColorConvertFloat4ToU32(ImVec4(
-                settings::kitesp_outline_color[0], settings::kitesp_outline_color[1],
-                settings::kitesp_outline_color[2], settings::kitesp_outline_color[3]))
+        ImU32 bgCol = settings::kitesp_background
+            ? ImGui::ColorConvertFloat4ToU32(ImVec4(
+                settings::kitesp_bg_color[0], settings::kitesp_bg_color[1],
+                settings::kitesp_bg_color[2], settings::kitesp_bg_color[3]))
             : 0;
 
         math::vec3 lp = world::local_anchor();
@@ -202,11 +219,16 @@ namespace rpbrx::visual::kitesp
             float tx = sp.x - ts.x * 0.5f;
             float ty = sp.y - ts.y * 0.5f;
 
-            if (settings::kitesp_outline) {
-                static const ImVec2 offsets[4] = {{-1,-1},{1,-1},{-1,1},{1,1}};
-                for (int i = 0; i < 4; ++i)
-                    dl->AddText(font, fontSize, ImVec2(tx + offsets[i].x, ty + offsets[i].y), ocol, buf);
+            // Background
+            if (settings::kitesp_background) {
+                float pad = 2.0f;
+                dl->AddRectFilled(ImVec2(tx - pad, ty - pad), ImVec2(tx + ts.x + pad, ty + ts.y + pad), bgCol);
             }
+
+            // Shadow outline
+            static const ImVec2 offsets[4] = {{-1,-1},{1,-1},{-1,1},{1,1}};
+            for (int i = 0; i < 4; ++i)
+                dl->AddText(font, fontSize, ImVec2(tx + offsets[i].x, ty + offsets[i].y), IM_COL32(0,0,0,200), buf);
             dl->AddText(font, fontSize, ImVec2(tx, ty), col, buf);
         }
     }

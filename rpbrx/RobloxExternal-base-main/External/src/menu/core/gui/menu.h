@@ -15,12 +15,7 @@
 #include "../overlay/overlay.h"
 #include "resources/icons.h"
 #include "../../../menu/overlay/settings.h"
-#include "../../../features/visual/preview/player_preview.h"
-#include "../../../features/misc/hitsound/hitsound.h"
-
-#include "../../../features/misc/explorer/explorer.h"
-#include "../../../features/aim/raycast/raycast.h"
-#include "../../../utility/cache/cache.h"
+// removed: player_preview, hitsound, explorer, raycast, cache includes
 namespace S = rpbrx::settings;
 namespace Menu
 {
@@ -3158,7 +3153,7 @@ inline constexpr float kNavTop = 12.0f;
 inline void CalcNavBarRect(int width, int height, ImVec2& outMin, ImVec2& outMax)
 {
     (void)height;
-    float bw = kNavPad * 2.0f + kNavTile * 5.0f + kNavGap * 4.0f;
+    float bw = kNavPad * 2.0f + kNavTile * 3.0f + kNavGap * 2.0f;
     float bh = kNavPad * 2.0f + kNavTile;
     float bx0 = floorf(((float)width - bw) * 0.5f);
     outMin = ImVec2(bx0, kNavTop);
@@ -3359,125 +3354,12 @@ inline bool IsMenuKeyActive(const char* id, int key, int mode)
 
 inline void RenderKeybinds(ImDrawList* dl, int width, int height)
 {
-    (void)width;
-    (void)height;
-    if (!g_keybinds)
-    {
-        return;
-    }
-    struct ActiveBind
-    {
-        const char* name;
-        const char* mode_tag;
-    };
-    ActiveBind list[16];
-    int count = 0;
-
-    auto push_bind = [&](const char* bind_id, const char* name, bool feat_on, int key, int mode)
-    {
-        if (!feat_on || key <= 0 || count >= 16) return;
-        bool active = IsMenuKeyActive(bind_id, key, mode);
-        if (!active) return;
-        const char* tag = (mode == 0) ? "[always]" : ((mode == 1) ? "[toggle]" : "[hold]");
-        list[count].name = name;
-        list[count].mode_tag = tag;
-        count++;
-    };
-
-    push_bind("##aim_key", "Aimbot", S::aim_enabled, S::aim_key, S::aim_key_mode);
-    push_bind("##autoshoot_key", "Auto shoot", S::aim_autoshoot, S::aim_autoshoot_key, S::aim_autoshoot_key_mode);
-    push_bind("##walkspeed_key", "Walkspeed", S::walkspeed_enabled, S::walkspeed_key, S::walkspeed_key_mode);
-    push_bind("##jumppower_key", "Jump power", S::jumppower_enabled, S::jumppower_key, S::jumppower_key_mode);
-    push_bind("##fov_key", "Camera FOV", S::fov_enabled, S::fov_key, S::fov_key_mode);
-    push_bind("##noclip_key", "Noclip", S::noclip_enabled, S::noclip_key, S::noclip_key_mode);
-    push_bind("##freecam_key", "Freecam", S::freecam_enabled, S::freecam_key, S::freecam_key_mode);
-    push_bind("##hipheight_key", "Hip height", S::hipheight_enabled, S::hipheight_key, S::hipheight_key_mode);
-    push_bind("##infjump_key", "Infinite jump", S::infjump_enabled, S::infjump_key, S::infjump_key_mode);
-    push_bind("##hitbox_key", "Hitbox expander", S::hitbox_enabled, S::hitbox_key, S::hitbox_key_mode);
-    push_bind("##speed_key", "Speed", S::speed_enabled, S::speed_key, S::speed_key_mode);
-    push_bind("##ore_key", "Ores", S::world_ore_enabled, S::world_ore_key, S::world_ore_key_mode);
-    push_bind("##plant_key", "Plants", S::world_plant_enabled, S::world_plant_key, S::world_plant_key_mode);
-    push_bind("##bots_key", "Bots", S::world_bots_enabled, S::world_bots_key, S::world_bots_key_mode);
-    push_bind("##animals_key", "Animals", S::world_animals_enabled, S::world_animals_key, S::world_animals_key_mode);
-    push_bind("##tools_key", "Tools", S::world_tools_enabled, S::world_tools_key, S::world_tools_key_mode);
-    push_bind("##crates_key", "Crates", S::world_crates_enabled, S::world_crates_key, S::world_crates_key_mode);
-    push_bind("##keycards_key", "Keycards", S::world_keycards_enabled, S::world_keycards_key, S::world_keycards_key_mode);
-
-    if (!g_menuOpen && count == 0)
-    {
-        return;
-    }
-
-    float w = 160.0f;
-    float hh = 20.0f;
-    float row_h = 18.0f;
-    float pad_y = 3.0f;
-    float body_h = (count > 0) ? (pad_y * 2.0f + (float)count * row_h) : 0.0f;
-    float total_h = hh + (count > 0 ? (body_h + 2.0f) : 0.0f);
-    g_bindsSize = ImVec2(w, total_h);
-
-    ImGuiIO& io = ImGui::GetIO();
-    ImVec2 m = io.MousePos;
-
-    if (g_menuOpen)
-    {
-        bool bHov = (m.x >= g_bindsPos.x && m.x <= g_bindsPos.x + w && m.y >= g_bindsPos.y && m.y <= g_bindsPos.y + total_h);
-        bool anyPop = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup);
-        if (!g_bindsDragging && ImGui::IsMouseClicked(0) && bHov && !anyPop && !g_movementDragging && g_activeBindId == nullptr)
-        {
-            g_bindsDragging = true;
-            g_bindsDragOff = ImVec2(m.x - g_bindsPos.x, m.y - g_bindsPos.y);
-        }
-        if (g_bindsDragging)
-        {
-            if (ImGui::IsMouseDown(0))
-            {
-                g_bindsPos.x = m.x - g_bindsDragOff.x;
-                g_bindsPos.y = m.y - g_bindsDragOff.y;
-            }
-            else
-            {
-                g_bindsDragging = false;
-            }
-        }
-    }
-    else
-    {
-        g_bindsDragging = false;
-    }
-
-    ImVec2 h_min = g_bindsPos;
-    ImVec2 h_max = ImVec2(g_bindsPos.x + w, g_bindsPos.y + hh);
-    DrawPixelBox(dl, h_min, h_max, CtrlBgU32(), BorderU32(), IM_COL32(0, 0, 0, 255));
-
-    ImFont* f = g_fontSmall ? g_fontSmall : ImGui::GetFont();
-    ImVec2 title_sz = f->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, "keybinds");
-    float tx = floorf(h_min.x + (w - title_sz.x) * 0.5f);
-    float ty = floorf(h_min.y + (hh - title_sz.y) * 0.5f);
-    DrawOutlinedText(dl, f, 13.0f, ImVec2(tx, ty), TextU32(), IM_COL32(0, 0, 0, 255), "keybinds");
-
-    if (count > 0)
-    {
-        ImVec2 b_min = ImVec2(g_bindsPos.x, g_bindsPos.y + hh + 2.0f);
-        ImVec2 b_max = ImVec2(g_bindsPos.x + w, b_min.y + body_h);
-        DrawPixelBox(dl, b_min, b_max, CtrlBgU32(), BorderU32(), IM_COL32(0, 0, 0, 255));
-
-        for (int i = 0; i < count; i++)
-        {
-            float ry = b_min.y + pad_y + (float)i * row_h;
-            float text_y = floorf(ry + (row_h - 13.0f) * 0.5f);
-            float name_x = floorf(b_min.x + 8.0f);
-            DrawOutlinedText(dl, f, 13.0f, ImVec2(name_x, text_y), TextU32(), IM_COL32(0, 0, 0, 255), list[i].name);
-
-            ImVec2 tag_sz = f->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, list[i].mode_tag);
-            float tag_x = floorf(b_max.x - 8.0f - tag_sz.x);
-            DrawOutlinedText(dl, f, 13.0f, ImVec2(tag_x, text_y), AccentU32(), IM_COL32(0, 0, 0, 255), list[i].mode_tag);
-        }
-    }
+    (void)dl; (void)width; (void)height;
 }
 
 inline void RenderMovement(ImDrawList* dl, int width, int height)
 {
+    (void)dl; (void)width; (void)height; return; // stubbed out
     (void)width;
     (void)height;
     if (!g_movement)
@@ -3825,6 +3707,7 @@ inline bool CopyTextToClipboard(const std::string& text)
 
 inline void RenderInternalDebug(ImDrawList* dl, int width, int height, float fps)
 {
+    (void)dl; (void)width; (void)height; (void)fps; return; // stubbed out
     (void)width;
     (void)height;
     if (!g_internalDebug)
@@ -3929,7 +3812,7 @@ inline void RenderInternalDebug(ImDrawList* dl, int width, int height, float fps
         snprintf(b, sizeof(b), "0x%llX", (unsigned long long)rpbrx::g_ctx.camera.addr);
         rows.push_back({ "Camera", b, TextU32() });
 
-        if (S::freecam_enabled && rpbrx::g_proc && rpbrx::g_proc->connected())
+        if (false && rpbrx::g_proc && rpbrx::g_proc->connected())
         {
             int camType = rpbrx::g_proc->read<int>(
                 rpbrx::g_ctx.camera.addr + Offsets::Camera::CameraType);
@@ -4093,16 +3976,10 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
     float py0 = hy0;
     float sx0 = px0 + tile + gap;
     float sy0 = hy0;
-    float fx0 = sx0 + tile + gap;
-    float fy0 = hy0;
-    float ux0 = fx0 + tile + gap;
-    float uy0 = hy0;
 
     bool home_active = g_menuOpen;
     bool pal_active = g_themeOpen;
     bool set_active = g_settingsOpen;
-    bool file_active = g_explorerOpen;
-    bool user_active = g_playerPreviewOpen;
 
     DrawPixelBox(dl, ImVec2(bx0, by0), ImVec2(bx1, by1), FrameU32(), BorderU32(), IM_COL32(0, 0, 0, 255));
     dl->AddRectFilled(ImVec2(bx0 + 2.0f, by0 + 2.0f), ImVec2(bx1 - 2.0f, by0 + 3.0f), AccentU32());
@@ -4113,29 +3990,23 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
     bool home_hov = (m.x >= hx0 && m.x <= hx0 + tile && m.y >= hy0 && m.y <= hy0 + tile);
     bool pal_hov  = (m.x >= px0 && m.x <= px0 + tile && m.y >= py0 && m.y <= py0 + tile);
     bool set_hov  = (m.x >= sx0 && m.x <= sx0 + tile && m.y >= sy0 && m.y <= sy0 + tile);
-    bool file_hov = (m.x >= fx0 && m.x <= fx0 + tile && m.y >= fy0 && m.y <= fy0 + tile);
-    bool user_hov = (m.x >= ux0 && m.x <= ux0 + tile && m.y >= uy0 && m.y <= uy0 + tile);
 
     if (IsModalActive())
     {
         home_hov = false;
         pal_hov = false;
         set_hov = false;
-        file_hov = false;
-        user_hov = false;
     }
 
-    if (home_hov || pal_hov || set_hov || file_hov || user_hov)
+    if (home_hov || pal_hov || set_hov)
     {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
-    g_navBarHov = home_hov || pal_hov || set_hov || file_hov || user_hov;
+    g_navBarHov = home_hov || pal_hov || set_hov;
 
     bool home_click = home_hov && ImGui::IsMouseClicked(0);
     bool pal_click  = pal_hov && ImGui::IsMouseClicked(0);
     bool set_click  = set_hov && ImGui::IsMouseClicked(0);
-    bool file_click = file_hov && ImGui::IsMouseClicked(0);
-    bool user_click = user_hov && ImGui::IsMouseClicked(0);
 
     if (home_click)
     {
@@ -4157,14 +4028,6 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
     {
         g_settingsOpen = !g_settingsOpen;
     }
-    if (file_click)
-    {
-        g_explorerOpen = !g_explorerOpen;
-    }
-    if (user_click)
-    {
-        g_playerPreviewOpen = !g_playerPreviewOpen;
-    }
 
     auto draw_nav_tile = [&](ImVec2 pos, bool active, bool hov) {
         ImU32 bg = (active || hov) ? CtrlHovU32() : CtrlBgU32();
@@ -4175,8 +4038,6 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
     draw_nav_tile(ImVec2(hx0, hy0), home_active, home_hov);
     draw_nav_tile(ImVec2(px0, py0), pal_active, pal_hov);
     draw_nav_tile(ImVec2(sx0, sy0), set_active, set_hov);
-    draw_nav_tile(ImVec2(fx0, fy0), file_active, file_hov);
-    draw_nav_tile(ImVec2(ux0, uy0), user_active, user_hov);
 
     ImU32 home_hole = (home_active || home_hov) ? CtrlHovU32() : CtrlBgU32();
     ImU32 set_hole  = (set_active || set_hov)   ? CtrlHovU32() : CtrlBgU32();
@@ -4188,8 +4049,6 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
     ImU32 home_glyph = home_active ? (home_hov ? col_hov_icon : col_active_icon) : (home_hov ? col_hov_icon : col_idle_icon);
     ImU32 pal_col    = pal_active  ? (pal_hov  ? col_hov_icon : col_active_icon) : (pal_hov  ? col_hov_icon : col_idle_icon);
     ImU32 set_glyph  = set_active  ? (set_hov  ? col_hov_icon : col_active_icon) : (set_hov  ? col_hov_icon : col_idle_icon);
-    ImU32 file_glyph = file_active ? (file_hov ? col_hov_icon : col_active_icon) : (file_hov ? col_hov_icon : col_idle_icon);
-    ImU32 user_glyph = user_active ? (user_hov ? col_hov_icon : col_active_icon) : (user_hov ? col_hov_icon : col_idle_icon);
 
     float hcx = hx0 + tile * 0.5f;
     float hcy = hy0 + tile * 0.5f;
@@ -4239,53 +4098,6 @@ inline bool RenderNavBar(ImDrawList* dl, int width, int height)
         dl->AddCircleFilled(ImVec2(pcx + 2.5f, pcy - 3.0f), 1.3f, pal_col);
         dl->AddCircleFilled(ImVec2(pcx + 3.0f, pcy + 2.0f), 1.3f, pal_col);
         dl->AddCircleFilled(ImVec2(pcx + 3.5f, pcy + 3.5f), 2.0f, (pal_active || pal_hov) ? CtrlHovU32() : CtrlBgU32());
-    }
-
-    float fcx = fx0 + tile * 0.5f;
-    float fcy = fy0 + tile * 0.5f;
-    if (!g_iconFileTex)
-    {
-        g_iconFileTex = LoadIconTexture(kIconFolderOpenPng, (int)sizeof(kIconFolderOpenPng));
-    }
-    if (g_iconFileTex)
-    {
-        float fisz = 20.0f;
-        dl->AddImage((ImTextureID)g_iconFileTex, ImVec2(fcx - fisz * 0.5f, fcy - fisz * 0.5f), ImVec2(fcx + fisz * 0.5f, fcy + fisz * 0.5f), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), file_glyph);
-    }
-    else
-    {
-    float doc_x0 = fcx - 5.0f;
-    float doc_y0 = fcy - 7.0f;
-    float doc_x1 = fcx + 5.0f;
-    float doc_y1 = fcy + 7.0f;
-    float fold = 4.0f;
-    dl->AddLine(ImVec2(doc_x0, doc_y0), ImVec2(doc_x1 - fold, doc_y0), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(doc_x1, doc_y0 + fold), ImVec2(doc_x1, doc_y1), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(doc_x0, doc_y0), ImVec2(doc_x0, doc_y1), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(doc_x0, doc_y1), ImVec2(doc_x1, doc_y1), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(doc_x1 - fold, doc_y0), ImVec2(doc_x1 - fold, doc_y0 + fold), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(doc_x1 - fold, doc_y0 + fold), ImVec2(doc_x1, doc_y0 + fold), file_glyph, 2.0f);
-    dl->AddLine(ImVec2(fcx - 2.5f, fcy - 1.0f), ImVec2(fcx + 2.5f, fcy - 1.0f), file_glyph, 1.5f);
-    dl->AddLine(ImVec2(fcx - 2.5f, fcy + 2.0f), ImVec2(fcx + 2.5f, fcy + 2.0f), file_glyph, 1.5f);
-    dl->AddLine(ImVec2(fcx - 2.5f, fcy + 5.0f), ImVec2(fcx + 1.0f, fcy + 5.0f), file_glyph, 1.5f);
-    }
-
-    float ucx = ux0 + tile * 0.5f;
-    float ucy = uy0 + tile * 0.5f;
-    if (!g_iconUserTex)
-    {
-        g_iconUserTex = LoadIconTexture(kIconUserPng, (int)sizeof(kIconUserPng));
-    }
-    if (g_iconUserTex)
-    {
-        float uisz = 20.0f;
-        dl->AddImage((ImTextureID)g_iconUserTex, ImVec2(ucx - uisz * 0.5f, ucy - uisz * 0.5f), ImVec2(ucx + uisz * 0.5f, ucy + uisz * 0.5f), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), user_glyph);
-    }
-    else
-    {
-    dl->AddCircle(ImVec2(ucx, ucy - 4.0f), 4.0f, user_glyph, 24, 2.0f);
-    dl->PathArcTo(ImVec2(ucx, ucy + 10.0f), 7.0f, 3.14159265f, 3.14159265f * 2.0f);
-    dl->PathStroke(user_glyph, 0, 2.0f);
     }
 
     return g_navBarHov;
@@ -4359,20 +4171,21 @@ inline void Render()
         ImVec2 inner_max = ImVec2(max.x - margin, max.y - margin);
 
         ImFont* tab_font = g_fontSmall ? g_fontSmall : ImGui::GetFont();
-        const char* sections[] = { "Combat", "Visuals", "World" };
+        const int kTabCount = 2;
+        const char* sections[] = { "Combat", "Visuals" };
         const float tab_h = 22.0f;
         const float tab_top_y = inner_pos.y - tab_h;
         const float pad_x = 8.0f;
         const float tab_gap = 4.0f;
 
-        float tab_bounds_min_x[3];
-        float tab_bounds_max_x[3];
+        float tab_bounds_min_x[kTabCount];
+        float tab_bounds_max_x[kTabCount];
         float cur_tab_x = inner_pos.x + 12.0f;
 
         ImVec2 m = io.MousePos;
         bool tab_hovered = false;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < kTabCount; i++)
         {
             ImVec2 text_sz = tab_font->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, sections[i]);
             float w = floorf(text_sz.x + pad_x * 2.0f);
@@ -4391,7 +4204,7 @@ inline void Render()
             cur_tab_x += w + tab_gap;
         }
 
-        if (g_activeTab < 0 || g_activeTab >= 3)
+        if (g_activeTab < 0 || g_activeTab >= kTabCount)
         {
             g_activeTab = 0;
         }
@@ -4401,7 +4214,7 @@ inline void Render()
 
         DrawTabbedContainer(dl, inner_pos, inner_max, active_min_x, active_max_x, tab_top_y, col_bg_frame, col_highlight, col_outline, col_accent_top);
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < kTabCount; i++)
         {
             float t_min_x = tab_bounds_min_x[i];
             float t_max_x = tab_bounds_max_x[i];
@@ -4425,34 +4238,14 @@ inline void Render()
         ImVec2 right_min = ImVec2(left_max.x + group_gap, inner_pos.y + group_pad + 6.0f);
         ImVec2 right_max = ImVec2(inner_max.x - group_pad, inner_max.y - group_pad);
 
-        const float group_split_h = 265.0f;
-        const float group_gap_v = 10.0f;
-
-        ImVec2 v_left_top_min = left_min;
-        ImVec2 v_left_top_max = ImVec2(left_max.x, left_min.y + group_split_h);
-        ImVec2 v_left_bot_min = ImVec2(left_min.x, v_left_top_max.y + group_gap_v);
-        ImVec2 v_left_bot_max = left_max;
-
-        const float world_h = v_left_bot_max.y - v_left_bot_min.y;
-        const float misc_h = world_h + 40.0f;
-        ImVec2 v_right_bot_max = right_max;
-        ImVec2 v_right_bot_min = ImVec2(right_min.x, right_max.y - misc_h);
-        ImVec2 v_right_top_min = right_min;
-        ImVec2 v_right_top_max = ImVec2(right_max.x, v_right_bot_min.y - group_gap_v);
-
-        if (g_activeTab == 1)
+        if (g_activeTab == 0)
         {
-            DrawGroupBox(dl, v_left_top_min, v_left_top_max, "player esp", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
-            DrawGroupBox(dl, v_left_bot_min, v_left_bot_max, "effects", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
-            DrawGroupBox(dl, v_right_top_min, v_right_top_max, "render", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
-            DrawGroupBox(dl, v_right_bot_min, v_right_bot_max, "world esp", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
+            DrawGroupBox(dl, left_min, left_max, "aim assist", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
         }
-        else
+        else if (g_activeTab == 1)
         {
-            const char* group_titles_left[]  = { "aim assist", "player esp", "movement" };
-            const char* group_titles_right[] = { "combat", "render", "utilities" };
-            DrawGroupBox(dl, left_min, left_max, group_titles_left[g_activeTab], tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
-            DrawGroupBox(dl, right_min, right_max, group_titles_right[g_activeTab], tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
+            DrawGroupBox(dl, left_min, left_max, "player esp", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
+            DrawGroupBox(dl, right_min, right_max, "effects & info", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
         }
 
         bool cb_hov = false;
@@ -4469,678 +4262,240 @@ inline void Render()
         const float qb_single_swatch_off = 14.0f + picker_sz.x + 6.0f;
         float col_avail_w = (left_max.x - 14.0f) - (left_min.x + 14.0f);
         float col_avail_w_r = (right_max.x - 14.0f) - (right_min.x + 14.0f);
+
+        // ===== TAB 0: COMBAT =====
         if (g_activeTab == 0)
         {
             float y = left_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_enabled, "Enabled", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##aim_key", dl, ImVec2(left_max.x - 14.0f, y), &S::aim_key, &S::aim_key_mode, tab_font, 13.0f);
-            if (S::aim_method == 2)
-            {
 
-                char kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##aim_key") == 0)
-                    snprintf(kb_buf, sizeof(kb_buf), "[ ]");
-                else if (S::aim_key == 0)
-                    snprintf(kb_buf, sizeof(kb_buf), "[ . . . ]");
-                else
-                    snprintf(kb_buf, sizeof(kb_buf), "[ %s ]", GetKeyDisplayName(S::aim_key));
-                ImFont* qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 kb_sz = qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, kb_buf);
-                QuestionItem aim_items[] = {
-                    MakeQCheckbox("MAGIC BULLET", &S::aim_magicbullet)
+            // Aim Assist checkbox + keybind
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_enabled, "Aim Assist", tab_font, 13.0f);
+            kb_hov |= DrawKeybind("##aim_key", dl, ImVec2(left_max.x - 14.0f, y), &S::aim_key, &S::aim_key_mode, tab_font, 13.0f);
+            y += kCheckRowPitch;
+
+            // Target Part dropdown
+            {
+                const char* part_items[] = { "RootPart", "Head" };
+                dd_hov |= DrawDropdownSingle("##dd_aimpart", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_part, part_items, 2, "Target Part", tab_font, 13.0f);
+                y += 37.0f;
+            }
+
+            // FOV slider (0-1000)
+            sl_hov |= DrawSliderFloat("##sl_aimfov", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_fov, 0.0f, 1000.0f, "FOV", "%.0f", tab_font, 13.0f);
+            y += 33.0f;
+
+            // Speed slider (0-30, step 0.1)
+            sl_hov |= DrawSliderFloat("##sl_aimspeed", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_speed, 0.0f, 30.0f, "Speed", "%.1f", tab_font, 13.0f);
+            y += 33.0f;
+
+            // Require Right Click
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_require_rclick, "Require Right Click", tab_font, 13.0f);
+            y += kCheckRowPitch;
+
+            // Team Check
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_team_check, "Team Check", tab_font, 13.0f);
+            y += kCheckRowPitch;
+
+            // Range Circle + sub-options
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_range_circle, "Range Circle", tab_font, 13.0f);
+            {
+                QuestionItem circle_items[] = {
+                    MakeQColorPicker("##q_circlecol", "COLOR", reinterpret_cast<ImVec4*>(S::aim_circle_color)),
+                    MakeQSliderFloat("##q_circletrans", "Transparency", &S::aim_circle_transparency, 0.0f, 1.0f, "%.2f"),
+                    MakeQSliderFloat("##q_circlethick", "Thickness", &S::aim_circle_thickness, 1.0f, 10.0f, "%.1f"),
+                    MakeQCheckbox("FILLED", &S::aim_circle_filled)
                 };
-                kb_hov |= DrawQuestionButton("##qb_aim", dl, ImVec2(left_max.x - 14.0f - kb_sz.x - 8.0f, y), aim_items, 1, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_circle", dl, ImVec2(left_max.x - 14.0f, y), circle_items, 4, tab_font, 13.0f);
             }
             y += kCheckRowPitch;
-            {
-                const char* method_items[] = { "Mouse", "Viewport", "Raycast", "Wraith" };
-                dd_hov |= DrawDropdownSingle("##dd_aimmethod", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_method, method_items, 4, "Method", tab_font, 13.0f);
-                y += 37.0f;
-                const char* part_items[] = { "Head", "Torso", "Pelvis", "Left arm", "Right arm", "Left leg", "Right leg" };
-                dd_hov |= DrawDropdownSingle("##dd_aimpart", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_part, part_items, 7, "Target part", tab_font, 13.0f);
-                y += 37.0f;
-                sl_hov |= DrawSliderFloat("##sl_aimfov", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_fov, 10.0f, 500.0f, "Aim FOV", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-                cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_smoothing_enabled, "Smoothing", tab_font, 13.0f);
-                y += kCheckRowPitch;
-                bool h_smx = false, h_smy = false;
-                if (S::aim_smoothing_enabled)
-                {
-                    h_smx = DrawSliderFloat("##sl_smoothx", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_smoothing_x, 1.0f, 30.0f, "Smooth X", "%.1f", tab_font, 13.0f);
-                    y += 33.0f;
-                    h_smy = DrawSliderFloat("##sl_smoothy", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_smoothing_y, 1.0f, 30.0f, "Smooth Y", "%.1f", tab_font, 13.0f);
-                    y += 33.0f;
-                }
-                sl_hov |= h_smx || h_smy;
-                cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::aim_deadzone_enabled, "Deadzone", tab_font, 13.0f);
-                y += kCheckRowPitch;
-                if (S::aim_deadzone_enabled)
-                {
-                    sl_hov |= DrawMinMaxSlider("##sl_deadzone", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::aim_deadzone_min, &S::aim_deadzone_max, 0, 150, "Deadzone", "%d - %d", tab_font, 13.0f);
-                    y += 33.0f;
-                }
-            }
-
-            float ry = right_min.y + 20.0f;
-            {
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_show_fov, "Show FOV", tab_font, 13.0f);
-                cp_hov |= DrawColorPicker("##col_fov", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
-                    reinterpret_cast<ImVec4*>(S::aim_fov_color), &S::aim_fov_outline, reinterpret_cast<ImVec4*>(S::aim_fov_outline_color));
-                {
-                    static const char* const kAimFovStyleItems[] = { "Ring", "Dots" };
-                    QuestionItem fov_items[] = {
-                        MakeQCheckbox("OUTLINE", &S::aim_fov_outline),
-                        MakeQCheckboxColor("##q_fovfc", "FILL", &S::aim_fov_fill, reinterpret_cast<ImVec4*>(S::aim_fov_fill_color)),
-                        MakeQDropdownSingle("##q_fovstyle", "Style", &S::aim_fov_style, kAimFovStyleItems, 2)
-                    };
-                    kb_hov |= DrawQuestionButton("##qb_fov", dl, ImVec2(right_max.x - qb_right_off, ry), fov_items, 3, tab_font, 13.0f);
-                }
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_tracer, "Aim tracer", tab_font, 13.0f);
-                cp_hov |= DrawColorPicker("##col_aimtracer", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
-                    reinterpret_cast<ImVec4*>(S::aim_tracer_color), &S::aim_tracer_outline, reinterpret_cast<ImVec4*>(S::aim_tracer_outline_color));
-                {
-                    QuestionItem aimtracer_items[] = {
-                        MakeQCheckbox("OUTLINE", &S::aim_tracer_outline),
-                        MakeQSliderFloat("##q_aimtracerthick", "Thickness", &S::aim_tracer_thickness, 0.5f, 5.0f, "%.1f")
-                    };
-                    kb_hov |= DrawQuestionButton("##qb_aimtracer", dl, ImVec2(right_max.x - qb_right_off, ry), aimtracer_items, 2, tab_font, 13.0f);
-                }
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_team_check, "Team check", tab_font, 13.0f);
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_visible_check, "Visible check", tab_font, 13.0f);
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_health_check, "Health check", tab_font, 13.0f);
-                {
-                    QuestionItem hp_items[] = {
-                        MakeQSliderFloat("##q_aimhp", "Max health", &S::aim_health_value, 1.0f, 100.0f, "%.0f")
-                    };
-                    kb_hov |= DrawQuestionButton("##qb_aimhp", dl, ImVec2(right_max.x - 14.0f, ry), hp_items, 1, tab_font, 13.0f);
-                }
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_distance_check, "Distance check", tab_font, 13.0f);
-                {
-                    QuestionItem dist_items[] = {
-                        MakeQSliderFloat("##q_aimdist", "Max distance", &S::aim_distance_value, 10.0f, 2000.0f, "%.0f")
-                    };
-                    kb_hov |= DrawQuestionButton("##qb_aimdist", dl, ImVec2(right_max.x - 14.0f, ry), dist_items, 1, tab_font, 13.0f);
-                }
-                ry += kCheckRowPitch;
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::aim_autoshoot, "Auto shoot", tab_font, 13.0f);
-                kb_hov |= DrawKeybind("##autoshoot_key", dl, ImVec2(right_max.x - 14.0f, ry), &S::aim_autoshoot_key, &S::aim_autoshoot_key_mode, tab_font, 13.0f);
-                ry += kCheckRowPitch;
-                if (S::aim_autoshoot)
-                {
-                    sl_hov |= DrawSliderFloat("##sl_shootdelay", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::aim_autoshoot_delay, 0.0f, 500.0f, "Shoot delay (ms)", "%.0f", tab_font, 13.0f);
-                    ry += 33.0f;
-                }
-                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::hitbox_enabled, "Hitbox expander", tab_font, 13.0f);
-                kb_hov |= DrawKeybind("##hitbox_key", dl, ImVec2(right_max.x - 14.0f, ry), &S::hitbox_key, &S::hitbox_key_mode, tab_font, 13.0f);
-                ry += kCheckRowPitch;
-                if (S::hitbox_enabled)
-                {
-                    sl_hov |= DrawSliderFloat("##sl_hitboxscale", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::hitbox_scale, 1.0f, 15.0f, "Scale", "%.1f", tab_font, 13.0f);
-                    ry += 33.0f;
-                    const char* hb_part_items[] = { "Head", "Torso", "All" };
-                    dd_hov |= DrawDropdownSingle("##dd_hitboxpart", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::hitbox_part, hb_part_items, 3, "Target part", tab_font, 13.0f);
-                    ry += 37.0f;
-                }
-            }
         }
+        // ===== TAB 1: VISUALS =====
         else if (g_activeTab == 1)
         {
-            float y = v_left_top_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::box_enabled, "Box", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_box", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::box_color), &S::box_outline, reinterpret_cast<ImVec4*>(S::box_outline_color));
-            {
-                static const char* const kBoxModeItems[] = { "Static", "Dynamic" };
-                static const char* const kBoxStyleItems[] = { "Full", "Corner" };
-                QuestionItem box_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::box_outline),
-                    MakeQCheckboxColorPair("##q_boxfc", "FILLED", &S::box_filled, reinterpret_cast<ImVec4*>(S::box_fill_color),
-                        "##q_boxfc2", reinterpret_cast<ImVec4*>(S::box_fill_color2)),
-                    MakeQCheckbox("GRADIENT", &S::box_fill_gradient, &S::box_filled),
-                    MakeQDropdownSingle("##q_boxmode", "Box mode", &S::box_mode, kBoxModeItems, 2),
-                    MakeQDropdownSingle("##q_boxstyle", "Box style", &S::box_style, kBoxStyleItems, 2)
-                };
-                kb_hov |= DrawQuestionButton("##qb_box", dl, ImVec2(v_left_top_max.x - qb_right_off, y), box_items, 5, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::skeleton_enabled, "Skeleton", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_skel", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::skeleton_color), &S::skeleton_outline, reinterpret_cast<ImVec4*>(S::skeleton_outline_color));
-            {
-                QuestionItem skel_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::skeleton_outline)
-                };
-                kb_hov |= DrawQuestionButton("##qb_skel", dl, ImVec2(v_left_top_max.x - qb_right_off, y), skel_items, 1, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::health_enabled, "Health bar", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_health", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::health_color), &S::health_outline, reinterpret_cast<ImVec4*>(S::health_outline_color));
-            {
-                QuestionItem hbar_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::health_outline),
-                    MakeQCheckbox("GRADIENT", &S::health_gradient),
-                    MakeQCheckbox("TEXT", &S::health_text)
-                };
-                kb_hov |= DrawQuestionButton("##qb_health", dl, ImVec2(v_left_top_max.x - qb_right_off, y), hbar_items, 3, tab_font, 13.0f);
-            }
+            // -- LEFT GROUP: Player ESP --
+            float y = left_min.y + 20.0f;
+
+            // ESP
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_enabled, "ESP", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_esp", dl, ImVec2(left_max.x - 14.0f - picker_sz.x, y), picker_sz,
+                reinterpret_cast<ImVec4*>(S::esp_color), nullptr, nullptr);
             y += kCheckRowPitch;
 
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::name_enabled, "Name", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_name", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::name_color), &S::name_outline, reinterpret_cast<ImVec4*>(S::name_outline_color));
+            // Mode dropdown
             {
-                QuestionItem name_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::name_outline)
-                };
-                kb_hov |= DrawQuestionButton("##qb_name", dl, ImVec2(v_left_top_max.x - qb_right_off, y), name_items, 1, tab_font, 13.0f);
+                const char* mode_items[] = { "2D", "3D", "Skeleton" };
+                dd_hov |= DrawDropdownSingle("##dd_espmode", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::esp_mode, mode_items, 3, "Mode", tab_font, 13.0f);
+                y += 37.0f;
             }
+
+            // 2D mode sub-options
+            if (S::esp_mode == 0)
+            {
+                cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_bounding_box, "Bounding Box", tab_font, 13.0f);
+                y += kCheckRowPitch;
+                {
+                    const char* style_items[] = { "Full", "Corner" };
+                    dd_hov |= DrawDropdownSingle("##dd_boxstyle", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::esp_box_style, style_items, 2, "Box Style", tab_font, 13.0f);
+                    y += 37.0f;
+                }
+                cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_filled, "Filled", tab_font, 13.0f);
+                cp_hov |= DrawColorPicker("##col_espfill", dl, ImVec2(left_max.x - 14.0f - picker_sz.x, y), picker_sz,
+                    reinterpret_cast<ImVec4*>(S::esp_fill_color), nullptr, nullptr);
+                y += kCheckRowPitch;
+            }
+
+            // Health Bar
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::health_enabled, "Health Bar", tab_font, 13.0f);
             y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::headdot_enabled, "Head dot", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_headdot", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::headdot_color), &S::headdot_outline, reinterpret_cast<ImVec4*>(S::headdot_outline_color));
+
+            // Skeleton
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::skeleton_enabled, "Skeleton", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_skel", dl, ImVec2(left_max.x - 14.0f - picker_sz.x, y), picker_sz,
+                reinterpret_cast<ImVec4*>(S::skeleton_color), nullptr, nullptr);
+            y += kCheckRowPitch;
+
+            // Head Dot
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::headdot_enabled, "Head Dot", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_headdot", dl, ImVec2(left_max.x - 14.0f - picker_sz.x, y), picker_sz,
+                reinterpret_cast<ImVec4*>(S::headdot_color), nullptr, nullptr);
             {
                 QuestionItem hd_items[] = {
                     MakeQCheckbox("FILL", &S::headdot_fill),
                     MakeQCheckbox("OUTLINE", &S::headdot_outline),
-                    MakeQSliderFloat("##q_headdotsz", "Dot size", &S::headdot_thickness, 1.0f, 10.0f, "%.1f")
+                    MakeQSliderFloat("##q_headdotsz", "Thickness", &S::headdot_thickness, 1.0f, 10.0f, "%.1f")
                 };
-                kb_hov |= DrawQuestionButton("##qb_headdot", dl, ImVec2(v_left_top_max.x - qb_right_off, y), hd_items, 3, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::distance_enabled, "Distance", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_dist", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::distance_color), &S::distance_outline, reinterpret_cast<ImVec4*>(S::distance_outline_color));
-            {
-                QuestionItem dist_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::distance_outline)
-                };
-                kb_hov |= DrawQuestionButton("##qb_dist", dl, ImVec2(v_left_top_max.x - qb_right_off, y), dist_items, 1, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::tool_enabled, "Tool", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_tool", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::tool_color), &S::tool_outline, reinterpret_cast<ImVec4*>(S::tool_outline_color));
-            {
-                QuestionItem tool_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::tool_outline),
-                    MakeQCheckbox("DIST CHECK", &S::tool_distance_check),
-                    MakeQSliderFloat("##q_tooldist", "Max distance", &S::tool_distance_value, 10.0f, 2000.0f, "%.0f", &S::tool_distance_check)
-                };
-                kb_hov |= DrawQuestionButton("##qb_tool", dl, ImVec2(v_left_top_max.x - qb_right_off, y), tool_items, 3, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::flags_enabled, "Flags", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_flags", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::flags_color), &S::flags_outline, reinterpret_cast<ImVec4*>(S::flags_outline_color));
-            {
-                QuestionItem flags_items[] = {
-                    MakeQCheckbox("GLOBAL", &S::flags_global),
-                    MakeQCheckboxColor("##q_flags_team", "TEAM", &S::flags_team, reinterpret_cast<ImVec4*>(S::flags_team_color), &S::flags_team_outline, reinterpret_cast<ImVec4*>(S::flags_team_outline_color)),
-                    MakeQCheckboxColor("##q_flags_state", "STATE", &S::flags_state, reinterpret_cast<ImVec4*>(S::flags_state_color), &S::flags_state_outline, reinterpret_cast<ImVec4*>(S::flags_state_outline_color)),
-                    MakeQCheckboxColor("##q_flags_health", "HEALTH", &S::flags_health, reinterpret_cast<ImVec4*>(S::flags_health_color), &S::flags_health_outline, reinterpret_cast<ImVec4*>(S::flags_health_outline_color))
-                };
-                kb_hov |= DrawQuestionButton("##qb_flags", dl, ImVec2(v_left_top_max.x - qb_right_off, y), flags_items, 4, tab_font, 13.0f);
-            }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_top_min.x + 14.0f, y), &S::tracer_enabled, "Tracer", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_tracer", dl, ImVec2(v_left_top_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::tracer_color), &S::tracer_outline, reinterpret_cast<ImVec4*>(S::tracer_outline_color));
-            {
-                static const char* const kTracerOriginItems[] = { "Bottom", "Top", "Center" };
-                QuestionItem tracer_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::tracer_outline),
-                    MakeQSliderFloat("##q_tracerthick", "Thickness", &S::tracer_thickness, 0.5f, 5.0f, "%.1f"),
-                    MakeQDropdownSingle("##q_tracerorigin", "Origin", &S::tracer_origin, kTracerOriginItems, 3)
-                };
-                kb_hov |= DrawQuestionButton("##qb_tracer", dl, ImVec2(v_left_top_max.x - qb_right_off, y), tracer_items, 3, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_headdot", dl, ImVec2(left_max.x - qb_single_swatch_off, y), hd_items, 3, tab_font, 13.0f);
             }
             y += kCheckRowPitch;
 
-            y = v_left_bot_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_bot_min.x + 14.0f, y), &S::chams_enabled, "Chams", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_chams", dl, ImVec2(v_left_bot_max.x - 14.0f - picker_sz.x, y), picker_sz,
+            // Team Check
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_team_check, "Team Check", tab_font, 13.0f);
+            y += kCheckRowPitch;
+
+            // Distance Check
+            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_distance_check, "Distance Check", tab_font, 13.0f);
+            {
+                QuestionItem dist_items[] = {
+                    MakeQSliderFloat("##q_espdistmin", "Min Range", &S::esp_distance_min, 0.0f, 500.0f, "%.0f"),
+                    MakeQSliderFloat("##q_espdistmax", "Max Range", &S::esp_distance_max, 0.0f, 500.0f, "%.0f")
+                };
+                kb_hov |= DrawQuestionButton("##qb_espdist", dl, ImVec2(left_max.x - 14.0f, y), dist_items, 2, tab_font, 13.0f);
+            }
+            y += kCheckRowPitch;
+
+            // -- RIGHT GROUP: Effects & Info --
+            float ry = right_min.y + 20.0f;
+
+            // Nametags
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::name_enabled, "Nametags", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_name", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
+                reinterpret_cast<ImVec4*>(S::name_color), nullptr, nullptr);
+            {
+                QuestionItem name_items[] = {
+                    MakeQSliderFloat("##q_namescale", "Scale", &S::name_scale, 0.1f, 1.5f, "%.1f"),
+                    MakeQCheckbox("SHOW HEALTH", &S::name_show_health),
+                    MakeQCheckbox("SHOW DISTANCE", &S::name_show_distance),
+                    MakeQCheckbox("DISPLAY NAME", &S::name_use_displayname),
+                    MakeQCheckbox("BACKGROUND", &S::name_show_background),
+                    MakeQCheckbox("SHOW TOOL", &S::name_show_tool)
+                };
+                kb_hov |= DrawQuestionButton("##qb_name", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), name_items, 6, tab_font, 13.0f);
+            }
+            ry += kCheckRowPitch;
+
+            // Chams
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::chams_enabled, "Chams", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_chams", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
                 reinterpret_cast<ImVec4*>(S::chams_color), nullptr, nullptr);
             {
                 QuestionItem chams_items[] = {
-                    MakeQCheckbox("VISIBLE ONLY", &S::chams_visible_only)
+                    MakeQColorPicker("##q_chamsout", "OUTLINE", reinterpret_cast<ImVec4*>(S::chams_outline_color)),
+                    MakeQSliderFloat("##q_chamstrans", "Transparency", &S::chams_transparency, 0.0f, 1.0f, "%.2f"),
+                    MakeQSliderFloat("##q_chamsouttr", "Outline Trans.", &S::chams_outline_transparency, 0.0f, 1.0f, "%.2f"),
+                    MakeQCheckbox("THROUGH WALLS", &S::chams_render_walls),
+                    MakeQCheckbox("TEAM CHECK", &S::chams_team_check)
                 };
-                kb_hov |= DrawQuestionButton("##qb_chams", dl, ImVec2(v_left_bot_max.x - qb_single_swatch_off, y), chams_items, 1, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_chams", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), chams_items, 5, tab_font, 13.0f);
             }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_bot_min.x + 14.0f, y), &S::whitehits_enabled, "Hit Color", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_whitehits", dl, ImVec2(v_left_bot_max.x - 14.0f - picker_sz.x, y), picker_sz,
+            ry += kCheckRowPitch;
+
+            // Tracers
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::tracer_enabled, "Tracers", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_tracer", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
+                reinterpret_cast<ImVec4*>(S::tracer_color), nullptr, nullptr);
+            {
+                static const char* const kTracerStartItems[] = { "Middle", "Bottom", "Mouse" };
+                static const char* const kTracerEndItems[] = { "Head", "Torso" };
+                QuestionItem tracer_items[] = {
+                    MakeQDropdownSingle("##q_tracerstart", "Start", &S::tracer_start, kTracerStartItems, 3),
+                    MakeQDropdownSingle("##q_tracerend", "End", &S::tracer_end, kTracerEndItems, 2),
+                    MakeQCheckbox("COLOR BY DIST", &S::tracer_color_by_distance),
+                    MakeQCheckbox("SHOW BEHIND", &S::tracer_behind),
+                    MakeQCheckbox("TEAM CHECK", &S::tracer_team_check)
+                };
+                kb_hov |= DrawQuestionButton("##qb_tracer", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), tracer_items, 5, tab_font, 13.0f);
+            }
+            ry += kCheckRowPitch;
+
+            // Equipped Tool
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::tool_enabled, "Equipped Tool", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_tool", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
+                reinterpret_cast<ImVec4*>(S::tool_color), nullptr, nullptr);
+            ry += kCheckRowPitch;
+
+            // WhiteHits
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::whitehits_enabled, "WhiteHits", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_whitehits", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
                 reinterpret_cast<ImVec4*>(S::whitehits_color), nullptr, nullptr);
             {
                 QuestionItem wh_items[] = {
                     MakeQSliderFloat("##q_whdur", "Duration", &S::whitehits_duration, 0.05f, 1.0f, "%.2f")
                 };
-                kb_hov |= DrawQuestionButton("##qb_whitehits", dl, ImVec2(v_left_bot_max.x - qb_single_swatch_off, y), wh_items, 1, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_whitehits", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), wh_items, 1, tab_font, 13.0f);
             }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_bot_min.x + 14.0f, y), &S::footsteps_enabled, "Footsteps", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_footsteps", dl, ImVec2(v_left_bot_max.x - 14.0f - picker_sz.x, y), picker_sz,
+            ry += kCheckRowPitch;
+
+            // Footsteps
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::footsteps_enabled, "Footsteps", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_footsteps", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
                 reinterpret_cast<ImVec4*>(S::footsteps_color), nullptr, nullptr);
             {
                 QuestionItem fs_items[] = {
                     MakeQSliderFloat("##q_fsrad", "Radius", &S::footsteps_radius, 0.1f, 3.0f, "%.1f"),
-                    MakeQSliderFloat("##q_fslife", "Lifetime", &S::footsteps_lifetime, 0.5f, 10.0f, "%.1f")
+                    MakeQSliderFloat("##q_fslife", "Lifetime", &S::footsteps_lifetime, 0.5f, 10.0f, "%.1f"),
+                    MakeQSliderFloat("##q_fsmax", "Max Count", &S::footsteps_max, 1.0f, 256.0f, "%.0f")
                 };
-                kb_hov |= DrawQuestionButton("##qb_footsteps", dl, ImVec2(v_left_bot_max.x - qb_single_swatch_off, y), fs_items, 2, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_footsteps", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), fs_items, 3, tab_font, 13.0f);
             }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_bot_min.x + 14.0f, y), &S::kitesp_enabled, "Kit ESP", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_kitesp", dl, ImVec2(v_left_bot_max.x - 14.0f - picker_sz.x, y), picker_sz,
-                reinterpret_cast<ImVec4*>(S::kitesp_color), &S::kitesp_outline, reinterpret_cast<ImVec4*>(S::kitesp_outline_color));
+            ry += kCheckRowPitch;
+
+            // Kit ESP
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::kitesp_enabled, "Kit ESP", tab_font, 13.0f);
+            cp_hov |= DrawColorPicker("##col_kitesp", dl, ImVec2(right_max.x - 14.0f - picker_sz.x, ry), picker_sz,
+                reinterpret_cast<ImVec4*>(S::kitesp_color), nullptr, nullptr);
             {
                 QuestionItem ke_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::kitesp_outline),
+                    MakeQCheckbox("ALCHEMIST", &S::kitesp_alchemist),
                     MakeQCheckbox("BEE", &S::kitesp_bee),
+                    MakeQCheckbox("BIGMAN", &S::kitesp_bigman),
+                    MakeQCheckbox("GHOST", &S::kitesp_ghost),
                     MakeQCheckbox("METAL", &S::kitesp_metal),
                     MakeQCheckbox("SHEEP", &S::kitesp_sheep),
-                    MakeQCheckbox("ELDER", &S::kitesp_elder),
-                    MakeQCheckbox("GHOST", &S::kitesp_ghost),
                     MakeQCheckbox("SORCERER", &S::kitesp_sorcerer),
                     MakeQCheckbox("STAR", &S::kitesp_star)
                 };
-                kb_hov |= DrawQuestionButton("##qb_kitesp", dl, ImVec2(v_left_bot_max.x - qb_right_off, y), ke_items, 8, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_kitesp", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), ke_items, 8, tab_font, 13.0f);
             }
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_left_bot_min.x + 14.0f, y), &S::targethud_enabled, "Target HUD", tab_font, 13.0f);
-            y += kCheckRowPitch;
+            ry += kCheckRowPitch;
 
-            float ry = v_right_top_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_top_min.x + 14.0f, ry), &S::oof_enabled, "Off-screen", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_oof", dl, ImVec2(v_right_top_max.x - 14.0f - picker_sz.x, ry), picker_sz,
-                reinterpret_cast<ImVec4*>(S::oof_color), &S::oof_outline, reinterpret_cast<ImVec4*>(S::oof_outline_color));
-            {
-                static const char* const kOofStyleItems[] = { "Arrow", "Chevron", "Triangle" };
-                QuestionItem oof_items[] = {
-                    MakeQCheckbox("OUTLINE", &S::oof_outline),
-                    MakeQCheckbox("NAMES", &S::oof_names),
-                    MakeQCheckbox("HEALTH", &S::oof_health),
-                    MakeQCheckbox("DISTANCE", &S::oof_distance),
-                    MakeQCheckbox("AVATAR", &S::oof_avatar),
-                    MakeQSliderFloat("##q_oofsize", "Arrow size", &S::oof_size, 3.0f, 25.0f, "%.0f"),
-                    MakeQSliderFloat("##q_oofradius", "Radius", &S::oof_radius, 30.0f, 500.0f, "%.0f"),
-                    MakeQDropdownSingle("##q_oofstyle", "Arrow style", &S::oof_arrow_style, kOofStyleItems, 3)
-                };
-                kb_hov |= DrawQuestionButton("##qb_oof", dl, ImVec2(v_right_top_max.x - qb_right_off, ry), oof_items, 8, tab_font, 13.0f);
-            }
+            // FOV
+            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::fov_enabled, "FOV", tab_font, 13.0f);
+            kb_hov |= DrawKeybind("##fov_key", dl, ImVec2(right_max.x - 14.0f, ry), &S::fov_key, &S::fov_key_mode, tab_font, 13.0f);
             ry += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_top_min.x + 14.0f, ry), &S::vis_team_check, "Team check", tab_font, 13.0f);
-            ry += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_top_min.x + 14.0f, ry), &S::time_enabled, "Shadow changer", tab_font, 13.0f);
-            ry += kCheckRowPitch;
-            if (S::time_enabled)
-            {
-                float col_avail_w_rt = (v_right_top_max.x - 14.0f) - (v_right_top_min.x + 14.0f);
-                sl_hov |= DrawSliderFloat("##sl_timevalue", dl, ImVec2(v_right_top_min.x + 14.0f, ry), col_avail_w_rt, &S::time_value, 0.0f, 24.0f, "Shadow", "%.1f", tab_font, 13.0f);
-                ry += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_top_min.x + 14.0f, ry), &S::world_fog_enabled, "Fog", tab_font, 13.0f);
-            cp_hov |= DrawColorPicker("##col_fog", dl, ImVec2(v_right_top_max.x - 14.0f - picker_sz.x, ry), picker_sz,
-                reinterpret_cast<ImVec4*>(S::world_fog_color), nullptr, nullptr);
-            {
-                QuestionItem fog_items[] = {
-                    MakeQSliderFloat("##q_fogstart", "Start", &S::world_fog_start, 0.0f, 2000.0f, "%.0f"),
-                    MakeQSliderFloat("##q_fogend", "End", &S::world_fog_end, 0.0f, 5000.0f, "%.0f")
-                };
-                kb_hov |= DrawQuestionButton("##qb_fog", dl, ImVec2(v_right_top_max.x - qb_single_swatch_off, ry), fog_items, 2, tab_font, 13.0f);
-            }
-            ry += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_top_min.x + 14.0f, ry), &S::world_exposure_enabled, "Exposure", tab_font, 13.0f);
-            ry += kCheckRowPitch;
-            if (S::world_exposure_enabled)
-            {
-                float col_avail_w_rt = (v_right_top_max.x - 14.0f) - (v_right_top_min.x + 14.0f);
-                sl_hov |= DrawSliderFloat("##sl_exposure", dl, ImVec2(v_right_top_min.x + 14.0f, ry), col_avail_w_rt, &S::world_exposure_value, -5.0f, 5.0f, "Exposure", "%.2f", tab_font, 13.0f);
-                ry += 33.0f;
-            }
-
-            float my = v_right_bot_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_ore_enabled, "Ores", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##ore_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_ore_key, &S::world_ore_key_mode, tab_font, 13.0f);
-            {
-                char ore_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##ore_key") == 0)
-                    snprintf(ore_kb_buf, sizeof(ore_kb_buf), "[ ]");
-                else if (S::world_ore_key == 0)
-                    snprintf(ore_kb_buf, sizeof(ore_kb_buf), "[ . . . ]");
-                else
-                    snprintf(ore_kb_buf, sizeof(ore_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_ore_key));
-                ImFont* ore_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 ore_kb_sz = ore_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, ore_kb_buf);
-                const char* ore_sub_ids[3] = { "##qb_ore_sub0", "##qb_ore_sub1", "##qb_ore_sub2" };
-                const char* ore_labels[3] = { "STONE", "PHOSPHATE", "METAL" };
-                static bool s_oreSubOpen[3] = { false, false, false };
-                QuestionItem ore_sub[3][2];
-                for (int i = 0; i < 3; ++i)
-                {
-                    ore_sub[i][0] = MakeQCheckbox("NAME", &S::world_ore_name[i]);
-                    ore_sub[i][1] = MakeQCheckbox("DIST", &S::world_ore_dist[i]);
-                }
-                QuestionItem ore_items[3];
-                for (int i = 0; i < 3; ++i)
-                {
-                    ore_items[i] = MakeQSubmenu(ore_sub_ids[i], ore_labels[i], ore_sub[i], 2, &s_oreSubOpen[i]);
-                    ore_items[i].bool_val = (i == 0) ? &S::world_ore_stone : (i == 1) ? &S::world_ore_phosphate : &S::world_ore_metal;
-                    ore_items[i].col_val = reinterpret_cast<ImVec4*>((i == 0) ? S::world_ore_stone_color : (i == 1) ? S::world_ore_phosphate_color : S::world_ore_metal_color);
-                }
-                kb_hov |= DrawQuestionButton("##qb_ore", dl, ImVec2(v_right_bot_max.x - 14.0f - ore_kb_sz.x - 8.0f, my), ore_items, 3, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_plant_enabled, "Plants", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##plant_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_plant_key, &S::world_plant_key_mode, tab_font, 13.0f);
-            {
-                char plant_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##plant_key") == 0)
-                    snprintf(plant_kb_buf, sizeof(plant_kb_buf), "[ ]");
-                else if (S::world_plant_key == 0)
-                    snprintf(plant_kb_buf, sizeof(plant_kb_buf), "[ . . . ]");
-                else
-                    snprintf(plant_kb_buf, sizeof(plant_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_plant_key));
-                ImFont* plant_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 plant_kb_sz = plant_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, plant_kb_buf);
-                const char* plant_ids[7] = { "##q_plant0", "##q_plant1", "##q_plant2", "##q_plant3", "##q_plant4", "##q_plant5", "##q_plant6" };
-                const char* plant_labels[7] = { "WOOL", "BLUEBERRY", "RASPBERRY", "LEMON", "CORN", "PUMPKIN", "TOMATO" };
-                const char* plant_sub_ids[7] = { "##qb_plant_sub0", "##qb_plant_sub1", "##qb_plant_sub2", "##qb_plant_sub3", "##qb_plant_sub4", "##qb_plant_sub5", "##qb_plant_sub6" };
-                static bool s_plantSubOpen[7] = { false, false, false, false, false, false, false };
-                QuestionItem plant_sub[7][2];
-                for (int i = 0; i < 7; ++i)
-                {
-                    plant_sub[i][0] = MakeQCheckbox("NAME", &S::world_plant_name[i]);
-                    plant_sub[i][1] = MakeQCheckbox("DIST", &S::world_plant_dist[i]);
-                }
-                QuestionItem plant_items[7];
-                for (int i = 0; i < 7; ++i)
-                {
-                    plant_items[i] = MakeQSubmenu(plant_sub_ids[i], plant_labels[i], plant_sub[i], 2, &s_plantSubOpen[i]);
-                    plant_items[i].bool_val = &S::world_plant_sel[i];
-                    plant_items[i].col_val = reinterpret_cast<ImVec4*>(S::world_plant_color[i]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_plant", dl, ImVec2(v_right_bot_max.x - 14.0f - plant_kb_sz.x - 8.0f, my), plant_items, 7, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_bots_enabled, "Bots", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##bots_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_bots_key, &S::world_bots_key_mode, tab_font, 13.0f);
-            {
-                char bots_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##bots_key") == 0)
-                    snprintf(bots_kb_buf, sizeof(bots_kb_buf), "[ ]");
-                else if (S::world_bots_key == 0)
-                    snprintf(bots_kb_buf, sizeof(bots_kb_buf), "[ . . . ]");
-                else
-                    snprintf(bots_kb_buf, sizeof(bots_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_bots_key));
-                ImFont* bots_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 bots_kb_sz = bots_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, bots_kb_buf);
-                const char* bots_sub_ids[3] = { "##qb_bots_sub0", "##qb_bots_sub1", "##qb_bots_sub2" };
-                const char* bots_labels[3] = { "BORIS", "BRUTUS", "SOLDIER" };
-                static bool s_botsSubOpen[3] = { false, false, false };
-                QuestionItem bots_sub[3][3];
-                for (int i = 0; i < 3; ++i)
-                {
-                    bots_sub[i][0] = MakeQCheckbox("BOX", &S::world_bots_box[i]);
-                    bots_sub[i][1] = MakeQCheckbox("NAME", &S::world_bots_name[i]);
-                    bots_sub[i][2] = MakeQCheckbox("DIST", &S::world_bots_dist[i]);
-                }
-                QuestionItem bots_items[3];
-                for (int i = 0; i < 3; ++i)
-                {
-                    bots_items[i] = MakeQSubmenu(bots_sub_ids[i], bots_labels[i], bots_sub[i], 3, &s_botsSubOpen[i]);
-                    bots_items[i].bool_val = &S::world_bots_sel[i];
-                    bots_items[i].col_val = reinterpret_cast<ImVec4*>(S::world_bots_color[i]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_bots", dl, ImVec2(v_right_bot_max.x - 14.0f - bots_kb_sz.x - 8.0f, my), bots_items, 3, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_animals_enabled, "Animals", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##animals_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_animals_key, &S::world_animals_key_mode, tab_font, 13.0f);
-            {
-                char animals_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##animals_key") == 0)
-                    snprintf(animals_kb_buf, sizeof(animals_kb_buf), "[ ]");
-                else if (S::world_animals_key == 0)
-                    snprintf(animals_kb_buf, sizeof(animals_kb_buf), "[ . . . ]");
-                else
-                    snprintf(animals_kb_buf, sizeof(animals_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_animals_key));
-                ImFont* animals_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 animals_kb_sz = animals_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, animals_kb_buf);
-                const char* animals_sub_ids[3] = { "##qb_animals_sub0", "##qb_animals_sub1", "##qb_animals_sub2" };
-                const char* animals_labels[3] = { "DEER", "BOAR", "WOLF" };
-                static bool s_animalsSubOpen[3] = { false, false, false };
-                QuestionItem animals_sub[3][2];
-                for (int i = 0; i < 3; ++i)
-                {
-                    animals_sub[i][0] = MakeQCheckbox("NAME", &S::world_animals_name[i]);
-                    animals_sub[i][1] = MakeQCheckbox("DIST", &S::world_animals_dist[i]);
-                }
-                QuestionItem animals_items[3];
-                for (int i = 0; i < 3; ++i)
-                {
-                    animals_items[i] = MakeQSubmenu(animals_sub_ids[i], animals_labels[i], animals_sub[i], 2, &s_animalsSubOpen[i]);
-                    animals_items[i].bool_val = &S::world_animals_sel[i];
-                    animals_items[i].col_val = reinterpret_cast<ImVec4*>(S::world_animals_color[i]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_animals", dl, ImVec2(v_right_bot_max.x - 14.0f - animals_kb_sz.x - 8.0f, my), animals_items, 3, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_tools_enabled, "Tools", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##tools_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_tools_key, &S::world_tools_key_mode, tab_font, 13.0f);
-            {
-                char tools_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##tools_key") == 0)
-                    snprintf(tools_kb_buf, sizeof(tools_kb_buf), "[ ]");
-                else if (S::world_tools_key == 0)
-                    snprintf(tools_kb_buf, sizeof(tools_kb_buf), "[ . . . ]");
-                else
-                    snprintf(tools_kb_buf, sizeof(tools_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_tools_key));
-                ImFont* tools_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 tools_kb_sz = tools_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, tools_kb_buf);
-                const char* tools_sub_ids[7] = { "##qb_tools_sub0", "##qb_tools_sub1", "##qb_tools_sub2", "##qb_tools_sub3", "##qb_tools_sub4", "##qb_tools_sub5", "##qb_tools_sub6" };
-                const char* tools_labels[7] = { "CABINET", "SMALL BOX", "LARGE BOX", "ANVIL", "FURNACE", "STORAGE", "BAG" };
-                static bool s_toolsSubOpen[7] = { false, false, false, false, false, false, false };
-                QuestionItem tools_sub[7][2];
-                for (int i = 0; i < 7; ++i)
-                {
-                    tools_sub[i][0] = MakeQCheckbox("NAME", &S::world_tools_name[i]);
-                    tools_sub[i][1] = MakeQCheckbox("DIST", &S::world_tools_dist[i]);
-                }
-                QuestionItem tools_items[7];
-                for (int j = 0; j < 7; ++j)
-                {
-                    tools_items[j] = MakeQSubmenu(tools_sub_ids[j], tools_labels[j], tools_sub[j], 2, &s_toolsSubOpen[j]);
-                    tools_items[j].bool_val = &S::world_tools_sel[j];
-                    tools_items[j].col_val = reinterpret_cast<ImVec4*>(S::world_tools_color[j]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_tools", dl, ImVec2(v_right_bot_max.x - 14.0f - tools_kb_sz.x - 8.0f, my), tools_items, 7, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_crates_enabled, "Crates", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##crates_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_crates_key, &S::world_crates_key_mode, tab_font, 13.0f);
-            {
-                char crates_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##crates_key") == 0)
-                    snprintf(crates_kb_buf, sizeof(crates_kb_buf), "[ ]");
-                else if (S::world_crates_key == 0)
-                    snprintf(crates_kb_buf, sizeof(crates_kb_buf), "[ . . . ]");
-                else
-                    snprintf(crates_kb_buf, sizeof(crates_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_crates_key));
-                ImFont* crates_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 crates_kb_sz = crates_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, crates_kb_buf);
-                const char* crates_sub_ids[8] = { "##qb_crates_sub0", "##qb_crates_sub1", "##qb_crates_sub2", "##qb_crates_sub3", "##qb_crates_sub4", "##qb_crates_sub5", "##qb_crates_sub6", "##qb_crates_sub7" };
-                const char* crates_labels[8] = { "CARE", "FOOD", "WOODEN", "LOCKED WD", "LOCKED ST", "LOCKED MT", "TIMED", "BRUTUS" };
-                static bool s_cratesSubOpen[8] = { false, false, false, false, false, false, false, false };
-                QuestionItem crates_sub[8][2];
-                for (int i = 0; i < 8; ++i)
-                {
-                    crates_sub[i][0] = MakeQCheckbox("NAME", &S::world_crates_name[i]);
-                    crates_sub[i][1] = MakeQCheckbox("DIST", &S::world_crates_dist[i]);
-                }
-                QuestionItem crates_items[8];
-                for (int i = 0; i < 8; ++i)
-                {
-                    crates_items[i] = MakeQSubmenu(crates_sub_ids[i], crates_labels[i], crates_sub[i], 2, &s_cratesSubOpen[i]);
-                    crates_items[i].bool_val = &S::world_crates_sel[i];
-                    crates_items[i].col_val = reinterpret_cast<ImVec4*>(S::world_crates_color[i]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_crates", dl, ImVec2(v_right_bot_max.x - 14.0f - crates_kb_sz.x - 8.0f, my), crates_items, 8, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(v_right_bot_min.x + 14.0f, my), &S::world_keycards_enabled, "Keycards", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##keycards_key", dl, ImVec2(v_right_bot_max.x - 14.0f, my), &S::world_keycards_key, &S::world_keycards_key_mode, tab_font, 13.0f);
-            {
-                char keycards_kb_buf[64];
-                if (g_activeBindId != nullptr && strcmp(g_activeBindId, "##keycards_key") == 0)
-                    snprintf(keycards_kb_buf, sizeof(keycards_kb_buf), "[ ]");
-                else if (S::world_keycards_key == 0)
-                    snprintf(keycards_kb_buf, sizeof(keycards_kb_buf), "[ . . . ]");
-                else
-                    snprintf(keycards_kb_buf, sizeof(keycards_kb_buf), "[ %s ]", GetKeyDisplayName(S::world_keycards_key));
-                ImFont* keycards_qf = tab_font ? tab_font : ImGui::GetFont();
-                ImVec2 keycards_kb_sz = keycards_qf->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, keycards_kb_buf);
-                const char* keycards_sub_ids[5] = { "##qb_keycards_sub0", "##qb_keycards_sub1", "##qb_keycards_sub2", "##qb_keycards_sub3", "##qb_keycards_sub4" };
-                const char* keycards_labels[5] = { "YELLOW", "PURPLE", "RED", "PINK", "BLACK" };
-                static bool s_keycardsSubOpen[5] = { false, false, false, false, false };
-                QuestionItem keycards_sub[5][2];
-                for (int i = 0; i < 5; ++i)
-                {
-                    keycards_sub[i][0] = MakeQCheckbox("NAME", &S::world_keycards_name[i]);
-                    keycards_sub[i][1] = MakeQCheckbox("DIST", &S::world_keycards_dist[i]);
-                }
-                QuestionItem keycards_items[5];
-                for (int j = 0; j < 5; ++j)
-                {
-                    keycards_items[j] = MakeQSubmenu(keycards_sub_ids[j], keycards_labels[j], keycards_sub[j], 2, &s_keycardsSubOpen[j]);
-                    keycards_items[j].bool_val = &S::world_keycards_sel[j];
-                    keycards_items[j].col_val = reinterpret_cast<ImVec4*>(S::world_keycards_color[j]);
-                }
-                kb_hov |= DrawQuestionButton("##qb_keycards", dl, ImVec2(v_right_bot_max.x - 14.0f - keycards_kb_sz.x - 8.0f, my), keycards_items, 5, tab_font, 13.0f);
-            }
-            my += kCheckRowPitch;
-        }
-        else if (g_activeTab == 2)
-        {
-            float y = left_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::walkspeed_enabled, "Walkspeed", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##walkspeed_key", dl, ImVec2(left_max.x - 14.0f, y), &S::walkspeed_key, &S::walkspeed_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::walkspeed_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_walkspeed", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::walkspeed_value, 8.0f, 250.0f, "Speed", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::jumppower_enabled, "Jump power", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##jumppower_key", dl, ImVec2(left_max.x - 14.0f, y), &S::jumppower_key, &S::jumppower_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::jumppower_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_jumppower", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::jumppower_value, 10.0f, 300.0f, "Power", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::fov_enabled, "Camera FOV", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##fov_key", dl, ImVec2(left_max.x - 14.0f, y), &S::fov_key, &S::fov_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
             if (S::fov_enabled)
             {
-                sl_hov |= DrawSliderFloat("##sl_camerafov", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::fov_value, 30.0f, 120.0f, "FOV", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::noclip_enabled, "Noclip", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##noclip_key", dl, ImVec2(left_max.x - 14.0f, y), &S::noclip_key, &S::noclip_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::freecam_enabled, "Freecam", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##freecam_key", dl, ImVec2(left_max.x - 14.0f, y), &S::freecam_key, &S::freecam_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::freecam_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_freecamspeed", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::freecam_speed, 5.0f, 500.0f, "Speed", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-                sl_hov |= DrawSliderFloat("##sl_freecamsens", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::freecam_sensitivity, 0.0005f, 0.01f, "Sensitivity", "%.4f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::hipheight_enabled, "Hip height", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##hipheight_key", dl, ImVec2(left_max.x - 14.0f, y), &S::hipheight_key, &S::hipheight_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::hipheight_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_hipheight", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::hipheight_value, 0.0f, 20.0f, "Height", "%.1f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::infjump_enabled, "Infinite jump", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##infjump_key", dl, ImVec2(left_max.x - 14.0f, y), &S::infjump_key, &S::infjump_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::speed_enabled, "Speed", tab_font, 13.0f);
-            kb_hov |= DrawKeybind("##speed_key", dl, ImVec2(left_max.x - 14.0f, y), &S::speed_key, &S::speed_key_mode, tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::speed_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_speed", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::speed_value, 1.0f, 100.0f, "Speed", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-            cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::tickrate_enabled, "Tickrate", tab_font, 13.0f);
-            y += kCheckRowPitch;
-            if (S::tickrate_enabled)
-            {
-                sl_hov |= DrawSliderFloat("##sl_tickrate", dl, ImVec2(left_min.x + 14.0f, y), col_avail_w, &S::tickrate_value, 30.0f, 240.0f, "Value", "%.0f", tab_font, 13.0f);
-                y += 33.0f;
-            }
-
-            float ry = right_min.y + 20.0f;
-            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::hitsound_enabled, "Hitsound", tab_font, 13.0f);
-            ry += kCheckRowPitch;
-            if (S::hitsound_enabled)
-            {
-                std::vector<std::string> sndList = rpbrx::misc::hitsound::get_sound_list();
-                const char* sndItems[64];
-                char sndBuf[64][64];
-                int sndCount = (int)sndList.size();
-                if (sndCount > 64) sndCount = 64;
-                for (int i = 0; i < sndCount; i++)
-                {
-                    snprintf(sndBuf[i], sizeof(sndBuf[i]), "%s", sndList[i].c_str());
-                    sndItems[i] = sndBuf[i];
-                }
-                if (sndCount == 0)
-                {
-                    sndItems[0] = "-";
-                    sndCount = 1;
-                }
-                if (S::hitsound_selected < 0 || S::hitsound_selected >= sndCount) S::hitsound_selected = 0;
-                dd_hov |= DrawDropdownSingle("##dd_hitsound", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::hitsound_selected, sndItems, sndCount, "Sound", tab_font, 13.0f);
-                ry += 37.0f;
-                const char* hitsoundmode_items[] = { "On damage", "On shoot" };
-                dd_hov |= DrawDropdownSingle("##dd_hitsoundmode", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::hitsound_mode, hitsoundmode_items, 2, "Mode", tab_font, 13.0f);
-                ry += 37.0f;
-                sl_hov |= DrawSliderFloat("##sl_hitsoundvol", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::hitsound_volume, 0.0f, 100.0f, "Volume", "%.0f", tab_font, 13.0f);
+                sl_hov |= DrawSliderFloat("##sl_camerafov", dl, ImVec2(right_min.x + 14.0f, ry), col_avail_w_r, &S::fov_value, 30.0f, 120.0f, "FOV", "%.0f", tab_font, 13.0f);
                 ry += 33.0f;
-            }
-            {
-                float b3_w = floorf((col_avail_w_r - 8.0f) / 3.0f);
-                bool ph = false;
-                if (DrawButton(dl, ImVec2(right_min.x + 14.0f, ry), b3_w, 20.0f, "Play", tab_font, 13.0f, &ph))
-                {
-                    rpbrx::misc::hitsound::play();
-                }
-                btn_hov |= ph;
-                bool fh = false;
-                if (DrawButton(dl, ImVec2(right_min.x + 14.0f + b3_w + 4.0f, ry), b3_w, 20.0f, "Folder", tab_font, 13.0f, &fh))
-                {
-                    rpbrx::misc::hitsound::open_folder();
-                }
-                btn_hov |= fh;
-                bool rh = false;
-                if (DrawButton(dl, ImVec2(right_min.x + 14.0f + (b3_w + 4.0f) * 2.0f, ry), col_avail_w_r - (b3_w + 4.0f) * 2.0f, 20.0f, "Refresh", tab_font, 13.0f, &rh))
-                {
-                    rpbrx::misc::hitsound::refresh_sounds();
-                }
-                btn_hov |= rh;
-                ry += 24.0f;
             }
         }
         UpdateThemeFromMask();
@@ -5149,10 +4504,7 @@ inline void Render()
         bool hovering = (m.x >= pos.x && m.x <= max.x && m.y >= pos.y && m.y <= max.y);
         bool overPanel = g_settingsOpen && g_setPos.x >= 0.0f && (m.x >= g_setPos.x && m.x <= g_setPos.x + g_setSize.x && m.y >= g_setPos.y && m.y <= g_setPos.y + g_setSize.y);
         bool overTheme = g_themeOpen && g_themePos.x >= 0.0f && (m.x >= g_themePos.x && m.x <= g_themePos.x + g_themeSize.x && m.y >= g_themePos.y && m.y <= g_themePos.y + g_themeSize.y);
-        bool overBinds = g_keybinds && (m.x >= g_bindsPos.x && m.x <= g_bindsPos.x + g_bindsSize.x && m.y >= g_bindsPos.y && m.y <= g_bindsPos.y + g_bindsSize.y);
-        bool overMove = g_movement && (m.x >= g_movementPos.x && m.x <= g_movementPos.x + g_movementSize.x && m.y >= g_movementPos.y && m.y <= g_movementPos.y + g_movementSize.y);
-        bool overDebug = g_internalDebug && (m.x >= g_debugPos.x && m.x <= g_debugPos.x + g_debugSize.x && m.y >= g_debugPos.y && m.y <= g_debugPos.y + g_debugSize.y);
-        if (!g_dragging && ImGui::IsMouseClicked(0) && hovering && !popup_open && !overPanel && !overTheme && !overBinds && !overMove && !overDebug && g_activeBindId == nullptr && !tab_hovered && !g_navBarHov && !cb_hov && !cp_hov && !kb_hov && !sl_hov && !btn_hov && !ti_hov && !dd_hov)
+        if (!g_dragging && ImGui::IsMouseClicked(0) && hovering && !popup_open && !overPanel && !overTheme && g_activeBindId == nullptr && !tab_hovered && !g_navBarHov && !cb_hov && !cp_hov && !kb_hov && !sl_hov && !btn_hov && !ti_hov && !dd_hov)
         {
             g_dragging = true;
             g_menuAnim = 1.0f;
@@ -5316,293 +4668,147 @@ inline bool DeleteConfigFile(const char* name)
 inline std::string BuildConfigPayload(const char* name)
 {
     std::string payload;
-    payload.reserve(32768);
+    payload.reserve(8192);
 
     char buf[512];
-    snprintf(buf, sizeof(buf), "[CONFIG_META]\nversion=1.0.0\ntype=rpbrx\nname=%s\n\n[SETTINGS]\n", (name && name[0] != '\0') ? name : "default");
+    snprintf(buf, sizeof(buf), "[CONFIG_META]\nversion=2.0.0\ntype=rpbrx\nname=%s\n\n[SETTINGS]\n", (name && name[0] != '\0') ? name : "default");
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "aim_enabled=%d\naim_key=%d\naim_key_mode=%d\naim_method=%d\naim_part=%d\naim_fov=%.2f\naim_smoothing_enabled=%d\naim_smoothing=%.2f\naim_smoothing_x=%.2f\naim_smoothing_y=%.2f\naim_show_fov=%d\naim_team_check=%d\naim_visible_check=%d\naim_health_check=%d\naim_health_value=%.2f\naim_distance_check=%d\naim_distance_value=%.2f\naim_autoshoot=%d\naim_autoshoot_key=%d\naim_autoshoot_key_mode=%d\naim_autoshoot_delay=%.2f\naim_deadzone_enabled=%d\naim_deadzone_min=%d\naim_deadzone_max=%d\n",
-        S::aim_enabled ? 1 : 0, S::aim_key, S::aim_key_mode, S::aim_method, S::aim_part, (double)S::aim_fov,
-        S::aim_smoothing_enabled ? 1 : 0, (double)S::aim_smoothing, (double)S::aim_smoothing_x, (double)S::aim_smoothing_y,
-        S::aim_show_fov ? 1 : 0, S::aim_team_check ? 1 : 0, S::aim_visible_check ? 1 : 0,
-        S::aim_health_check ? 1 : 0, (double)S::aim_health_value, S::aim_distance_check ? 1 : 0, (double)S::aim_distance_value,
-        S::aim_autoshoot ? 1 : 0, S::aim_autoshoot_key, S::aim_autoshoot_key_mode, (double)S::aim_autoshoot_delay,
-        S::aim_deadzone_enabled ? 1 : 0, S::aim_deadzone_min, S::aim_deadzone_max);
+    // -- Aim Assist --
+    snprintf(buf, sizeof(buf), "aim_enabled=%d\naim_key=%d\naim_key_mode=%d\naim_part=%d\naim_fov=%.2f\naim_speed=%.2f\naim_range_circle=%d\naim_require_rclick=%d\naim_team_check=%d\n",
+        S::aim_enabled ? 1 : 0, S::aim_key, S::aim_key_mode, S::aim_part, (double)S::aim_fov, (double)S::aim_speed,
+        S::aim_range_circle ? 1 : 0, S::aim_require_rclick ? 1 : 0, S::aim_team_check ? 1 : 0);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "aim_fov_style=%d\naim_magicbullet=%d\naim_tracer=%d\naim_tracer_thickness=%.2f\nvis_team_check=%d\n",
-        S::aim_fov_style, S::aim_magicbullet ? 1 : 0,
-        S::aim_tracer ? 1 : 0, (double)S::aim_tracer_thickness,
-        S::vis_team_check ? 1 : 0);
+    snprintf(buf, sizeof(buf), "aim_circle_color=%.4f,%.4f,%.4f,%.4f\naim_circle_transparency=%.2f\naim_circle_thickness=%.2f\naim_circle_filled=%d\n",
+        S::aim_circle_color[0], S::aim_circle_color[1], S::aim_circle_color[2], S::aim_circle_color[3],
+        (double)S::aim_circle_transparency, (double)S::aim_circle_thickness, S::aim_circle_filled ? 1 : 0);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "box_enabled=%d\nbox_mode=%d\nbox_style=%d\nbox_outline=%d\nbox_filled=%d\nbox_fill_gradient=%d\nskeleton_enabled=%d\nskeleton_outline=%d\nhealth_enabled=%d\nhealth_outline=%d\nhealth_gradient=%d\nhealth_text=%d\nname_enabled=%d\nname_outline=%d\nheaddot_enabled=%d\nheaddot_fill=%d\nheaddot_outline=%d\nheaddot_thickness=%.2f\ndistance_enabled=%d\ndistance_outline=%d\ntool_enabled=%d\ntool_outline=%d\ntracer_enabled=%d\ntracer_outline=%d\ntracer_origin=%d\ntracer_thickness=%.2f\noof_enabled=%d\noof_outline=%d\noof_size=%.2f\noof_radius=%.2f\noof_arrow_style=%d\noof_names=%d\noof_health=%d\noof_distance=%d\noof_avatar=%d\n",
-        S::box_enabled ? 1 : 0, S::box_mode, S::box_style, S::box_outline ? 1 : 0, S::box_filled ? 1 : 0, S::box_fill_gradient ? 1 : 0,
-        S::skeleton_enabled ? 1 : 0, S::skeleton_outline ? 1 : 0, S::health_enabled ? 1 : 0, S::health_outline ? 1 : 0,
-        S::health_gradient ? 1 : 0, S::health_text ? 1 : 0, S::name_enabled ? 1 : 0, S::name_outline ? 1 : 0,
-        S::headdot_enabled ? 1 : 0, S::headdot_fill ? 1 : 0, S::headdot_outline ? 1 : 0, (double)S::headdot_thickness,
-        S::distance_enabled ? 1 : 0, S::distance_outline ? 1 : 0, S::tool_enabled ? 1 : 0, S::tool_outline ? 1 : 0,
-        S::tracer_enabled ? 1 : 0, S::tracer_outline ? 1 : 0, S::tracer_origin, (double)S::tracer_thickness,
-        S::oof_enabled ? 1 : 0, S::oof_outline ? 1 : 0, (double)S::oof_size, (double)S::oof_radius, S::oof_arrow_style,
-        S::oof_names ? 1 : 0, S::oof_health ? 1 : 0, S::oof_distance ? 1 : 0, S::oof_avatar ? 1 : 0);
+    // -- ESP --
+    snprintf(buf, sizeof(buf), "esp_enabled=%d\nesp_mode=%d\nesp_bounding_box=%d\nesp_filled=%d\nesp_box_style=%d\nesp_team_check=%d\nesp_distance_check=%d\nesp_distance_min=%.2f\nesp_distance_max=%.2f\n",
+        S::esp_enabled ? 1 : 0, S::esp_mode, S::esp_bounding_box ? 1 : 0, S::esp_filled ? 1 : 0,
+        S::esp_box_style, S::esp_team_check ? 1 : 0, S::esp_distance_check ? 1 : 0,
+        (double)S::esp_distance_min, (double)S::esp_distance_max);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "walkspeed_enabled=%d\nwalkspeed_value=%.2f\nwalkspeed_key=%d\nwalkspeed_key_mode=%d\njumppower_enabled=%d\njumppower_value=%.2f\njumppower_key=%d\njumppower_key_mode=%d\nhitsound_enabled=%d\nhitsound_selected=%d\nhitsound_mode=%d\nhitsound_volume=%.2f\n",
-        S::walkspeed_enabled ? 1 : 0, (double)S::walkspeed_value, S::walkspeed_key, S::walkspeed_key_mode,
-        S::jumppower_enabled ? 1 : 0, (double)S::jumppower_value, S::jumppower_key, S::jumppower_key_mode,
-        S::hitsound_enabled ? 1 : 0, S::hitsound_selected, S::hitsound_mode, (double)S::hitsound_volume);
+    snprintf(buf, sizeof(buf), "esp_color=%.4f,%.4f,%.4f,%.4f\nesp_fill_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::esp_color[0], S::esp_color[1], S::esp_color[2], S::esp_color[3],
+        S::esp_fill_color[0], S::esp_fill_color[1], S::esp_fill_color[2], S::esp_fill_color[3]);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "tool_distance_check=%d\ntool_distance_value=%.2f\nflags_enabled=%d\nflags_global=%d\nflags_outline=%d\nflags_team=%d\nflags_team_outline=%d\nflags_state=%d\nflags_state_outline=%d\nflags_health=%d\nflags_health_outline=%d\n",
-        S::tool_distance_check ? 1 : 0, (double)S::tool_distance_value,
-        S::flags_enabled ? 1 : 0,
-        S::flags_global ? 1 : 0, S::flags_outline ? 1 : 0,
-        S::flags_team ? 1 : 0, S::flags_team_outline ? 1 : 0,
-        S::flags_state ? 1 : 0, S::flags_state_outline ? 1 : 0,
-        S::flags_health ? 1 : 0, S::flags_health_outline ? 1 : 0);
+    // -- Health, Skeleton --
+    snprintf(buf, sizeof(buf), "health_enabled=%d\nskeleton_enabled=%d\n",
+        S::health_enabled ? 1 : 0, S::skeleton_enabled ? 1 : 0);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "flags_color=%.4f,%.4f,%.4f,%.4f\nflags_outline_color=%.4f,%.4f,%.4f,%.4f\nflags_team_color=%.4f,%.4f,%.4f,%.4f\nflags_team_outline_color=%.4f,%.4f,%.4f,%.4f\nflags_state_color=%.4f,%.4f,%.4f,%.4f\nflags_state_outline_color=%.4f,%.4f,%.4f,%.4f\nflags_health_color=%.4f,%.4f,%.4f,%.4f\nflags_health_outline_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::flags_color[0], S::flags_color[1], S::flags_color[2], S::flags_color[3],
-        S::flags_outline_color[0], S::flags_outline_color[1], S::flags_outline_color[2], S::flags_outline_color[3],
-        S::flags_team_color[0], S::flags_team_color[1], S::flags_team_color[2], S::flags_team_color[3],
-        S::flags_team_outline_color[0], S::flags_team_outline_color[1], S::flags_team_outline_color[2], S::flags_team_outline_color[3],
-        S::flags_state_color[0], S::flags_state_color[1], S::flags_state_color[2], S::flags_state_color[3],
-        S::flags_state_outline_color[0], S::flags_state_outline_color[1], S::flags_state_outline_color[2], S::flags_state_outline_color[3],
-        S::flags_health_color[0], S::flags_health_color[1], S::flags_health_color[2], S::flags_health_color[3],
-        S::flags_health_outline_color[0], S::flags_health_outline_color[1], S::flags_health_outline_color[2], S::flags_health_outline_color[3]);
+    snprintf(buf, sizeof(buf), "skeleton_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::skeleton_color[0], S::skeleton_color[1], S::skeleton_color[2], S::skeleton_color[3]);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "fov_enabled=%d\nfov_value=%.2f\nfov_key=%d\nfov_key_mode=%d\nnoclip_enabled=%d\nnoclip_key=%d\nnoclip_key_mode=%d\nfreecam_enabled=%d\nfreecam_key=%d\nfreecam_key_mode=%d\nfreecam_speed=%.2f\nfreecam_sensitivity=%.4f\nhipheight_enabled=%d\nhipheight_value=%.2f\nhipheight_key=%d\nhipheight_key_mode=%d\ninfjump_enabled=%d\ninfjump_key=%d\ninfjump_key_mode=%d\n",
-        S::fov_enabled ? 1 : 0, (double)S::fov_value, S::fov_key, S::fov_key_mode,
-        S::noclip_enabled ? 1 : 0, S::noclip_key, S::noclip_key_mode,
-        S::freecam_enabled ? 1 : 0, S::freecam_key, S::freecam_key_mode, (double)S::freecam_speed, (double)S::freecam_sensitivity,
-        S::hipheight_enabled ? 1 : 0, (double)S::hipheight_value, S::hipheight_key, S::hipheight_key_mode,
-        S::infjump_enabled ? 1 : 0, S::infjump_key, S::infjump_key_mode);
+    // -- Chams --
+    snprintf(buf, sizeof(buf), "chams_enabled=%d\nchams_transparency=%.2f\nchams_outline_transparency=%.2f\nchams_render_walls=%d\nchams_team_check=%d\n",
+        S::chams_enabled ? 1 : 0, (double)S::chams_transparency, (double)S::chams_outline_transparency,
+        S::chams_render_walls ? 1 : 0, S::chams_team_check ? 1 : 0);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "time_enabled=%d\ntime_value=%.2f\n",
-        S::time_enabled ? 1 : 0, (double)S::time_value);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_fog_enabled=%d\nworld_fog_start=%.2f\nworld_fog_end=%.2f\nworld_exposure_enabled=%d\nworld_exposure_value=%.2f\n",
-        S::world_fog_enabled ? 1 : 0, (double)S::world_fog_start, (double)S::world_fog_end,
-        S::world_exposure_enabled ? 1 : 0, (double)S::world_exposure_value);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_fog_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::world_fog_color[0], S::world_fog_color[1], S::world_fog_color[2], S::world_fog_color[3]);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_ore_enabled=%d\nworld_ore_key=%d\nworld_ore_key_mode=%d\nworld_ore_name=%d,%d,%d\nworld_ore_dist=%d,%d,%d\nworld_ore_stone=%d\nworld_ore_phosphate=%d\nworld_ore_metal=%d\nworld_plant_key=%d\nworld_plant_key_mode=%d\n",
-        S::world_ore_enabled ? 1 : 0, S::world_ore_key, S::world_ore_key_mode,
-        S::world_ore_name[0] ? 1 : 0, S::world_ore_name[1] ? 1 : 0, S::world_ore_name[2] ? 1 : 0,
-        S::world_ore_dist[0] ? 1 : 0, S::world_ore_dist[1] ? 1 : 0, S::world_ore_dist[2] ? 1 : 0,
-        S::world_ore_stone ? 1 : 0, S::world_ore_phosphate ? 1 : 0, S::world_ore_metal ? 1 : 0,
-        S::world_plant_key, S::world_plant_key_mode);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_ore_stone_color=%.4f,%.4f,%.4f,%.4f\nworld_ore_phosphate_color=%.4f,%.4f,%.4f,%.4f\nworld_ore_metal_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::world_ore_stone_color[0], S::world_ore_stone_color[1], S::world_ore_stone_color[2], S::world_ore_stone_color[3],
-        S::world_ore_phosphate_color[0], S::world_ore_phosphate_color[1], S::world_ore_phosphate_color[2], S::world_ore_phosphate_color[3],
-        S::world_ore_metal_color[0], S::world_ore_metal_color[1], S::world_ore_metal_color[2], S::world_ore_metal_color[3]);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_plant_enabled=%d\nworld_plant_sel=%d,%d,%d,%d,%d,%d,%d\n",
-        S::world_plant_enabled ? 1 : 0,
-        S::world_plant_sel[0] ? 1 : 0, S::world_plant_sel[1] ? 1 : 0, S::world_plant_sel[2] ? 1 : 0,
-        S::world_plant_sel[3] ? 1 : 0, S::world_plant_sel[4] ? 1 : 0, S::world_plant_sel[5] ? 1 : 0,
-        S::world_plant_sel[6] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 7; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_plant_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_plant_color[i][0], (double)S::world_plant_color[i][1],
-            (double)S::world_plant_color[i][2], (double)S::world_plant_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "world_bots_enabled=%d\nworld_bots_key=%d\nworld_bots_key_mode=%d\nworld_bots_sel=%d,%d,%d\n",
-        S::world_bots_enabled ? 1 : 0, S::world_bots_key, S::world_bots_key_mode,
-        S::world_bots_sel[0] ? 1 : 0, S::world_bots_sel[1] ? 1 : 0, S::world_bots_sel[2] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 3; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_bots_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_bots_color[i][0], (double)S::world_bots_color[i][1],
-            (double)S::world_bots_color[i][2], (double)S::world_bots_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "world_bots_box=%d,%d,%d\nworld_bots_name=%d,%d,%d\nworld_bots_dist=%d,%d,%d\n",
-        S::world_bots_box[0] ? 1 : 0, S::world_bots_box[1] ? 1 : 0, S::world_bots_box[2] ? 1 : 0,
-        S::world_bots_name[0] ? 1 : 0, S::world_bots_name[1] ? 1 : 0, S::world_bots_name[2] ? 1 : 0,
-        S::world_bots_dist[0] ? 1 : 0, S::world_bots_dist[1] ? 1 : 0, S::world_bots_dist[2] ? 1 : 0);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "world_animals_enabled=%d\nworld_animals_key=%d\nworld_animals_key_mode=%d\nworld_animals_sel=%d,%d,%d\nworld_animals_name=%d,%d,%d\nworld_animals_dist=%d,%d,%d\n",
-        S::world_animals_enabled ? 1 : 0, S::world_animals_key, S::world_animals_key_mode,
-        S::world_animals_sel[0] ? 1 : 0, S::world_animals_sel[1] ? 1 : 0, S::world_animals_sel[2] ? 1 : 0,
-        S::world_animals_name[0] ? 1 : 0, S::world_animals_name[1] ? 1 : 0, S::world_animals_name[2] ? 1 : 0,
-        S::world_animals_dist[0] ? 1 : 0, S::world_animals_dist[1] ? 1 : 0, S::world_animals_dist[2] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 3; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_animals_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_animals_color[i][0], (double)S::world_animals_color[i][1],
-            (double)S::world_animals_color[i][2], (double)S::world_animals_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "world_tools_enabled=%d\nworld_tools_key=%d\nworld_tools_key_mode=%d\nworld_tools_sel=%d,%d,%d,%d,%d,%d,%d\nworld_tools_name=%d,%d,%d,%d,%d,%d,%d\nworld_tools_dist=%d,%d,%d,%d,%d,%d,%d\n",
-        S::world_tools_enabled ? 1 : 0, S::world_tools_key, S::world_tools_key_mode,
-        S::world_tools_sel[0] ? 1 : 0, S::world_tools_sel[1] ? 1 : 0, S::world_tools_sel[2] ? 1 : 0,
-        S::world_tools_sel[3] ? 1 : 0, S::world_tools_sel[4] ? 1 : 0, S::world_tools_sel[5] ? 1 : 0,
-        S::world_tools_sel[6] ? 1 : 0,
-        S::world_tools_name[0] ? 1 : 0, S::world_tools_name[1] ? 1 : 0, S::world_tools_name[2] ? 1 : 0,
-        S::world_tools_name[3] ? 1 : 0, S::world_tools_name[4] ? 1 : 0, S::world_tools_name[5] ? 1 : 0,
-        S::world_tools_name[6] ? 1 : 0,
-        S::world_tools_dist[0] ? 1 : 0, S::world_tools_dist[1] ? 1 : 0, S::world_tools_dist[2] ? 1 : 0,
-        S::world_tools_dist[3] ? 1 : 0, S::world_tools_dist[4] ? 1 : 0, S::world_tools_dist[5] ? 1 : 0,
-        S::world_tools_dist[6] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 7; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_tools_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_tools_color[i][0], (double)S::world_tools_color[i][1],
-            (double)S::world_tools_color[i][2], (double)S::world_tools_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "world_crates_enabled=%d\nworld_crates_key=%d\nworld_crates_key_mode=%d\nworld_crates_sel=%d,%d,%d,%d,%d,%d,%d,%d\nworld_crates_name=%d,%d,%d,%d,%d,%d,%d,%d\nworld_crates_dist=%d,%d,%d,%d,%d,%d,%d,%d\n",
-        S::world_crates_enabled ? 1 : 0, S::world_crates_key, S::world_crates_key_mode,
-        S::world_crates_sel[0] ? 1 : 0, S::world_crates_sel[1] ? 1 : 0, S::world_crates_sel[2] ? 1 : 0,
-        S::world_crates_sel[3] ? 1 : 0, S::world_crates_sel[4] ? 1 : 0, S::world_crates_sel[5] ? 1 : 0,
-        S::world_crates_sel[6] ? 1 : 0, S::world_crates_sel[7] ? 1 : 0,
-        S::world_crates_name[0] ? 1 : 0, S::world_crates_name[1] ? 1 : 0, S::world_crates_name[2] ? 1 : 0,
-        S::world_crates_name[3] ? 1 : 0, S::world_crates_name[4] ? 1 : 0, S::world_crates_name[5] ? 1 : 0,
-        S::world_crates_name[6] ? 1 : 0, S::world_crates_name[7] ? 1 : 0,
-        S::world_crates_dist[0] ? 1 : 0, S::world_crates_dist[1] ? 1 : 0, S::world_crates_dist[2] ? 1 : 0,
-        S::world_crates_dist[3] ? 1 : 0, S::world_crates_dist[4] ? 1 : 0, S::world_crates_dist[5] ? 1 : 0,
-        S::world_crates_dist[6] ? 1 : 0, S::world_crates_dist[7] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 8; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_crates_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_crates_color[i][0], (double)S::world_crates_color[i][1],
-            (double)S::world_crates_color[i][2], (double)S::world_crates_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "world_keycards_enabled=%d\nworld_keycards_key=%d\nworld_keycards_key_mode=%d\nworld_keycards_sel=%d,%d,%d,%d,%d\nworld_keycards_name=%d,%d,%d,%d,%d\nworld_keycards_dist=%d,%d,%d,%d,%d\n",
-        S::world_keycards_enabled ? 1 : 0, S::world_keycards_key, S::world_keycards_key_mode,
-        S::world_keycards_sel[0] ? 1 : 0, S::world_keycards_sel[1] ? 1 : 0, S::world_keycards_sel[2] ? 1 : 0,
-        S::world_keycards_sel[3] ? 1 : 0, S::world_keycards_sel[4] ? 1 : 0,
-        S::world_keycards_name[0] ? 1 : 0, S::world_keycards_name[1] ? 1 : 0, S::world_keycards_name[2] ? 1 : 0,
-        S::world_keycards_name[3] ? 1 : 0, S::world_keycards_name[4] ? 1 : 0,
-        S::world_keycards_dist[0] ? 1 : 0, S::world_keycards_dist[1] ? 1 : 0, S::world_keycards_dist[2] ? 1 : 0,
-        S::world_keycards_dist[3] ? 1 : 0, S::world_keycards_dist[4] ? 1 : 0);
-    payload += buf;
-    for (int i = 0; i < 5; ++i)
-    {
-        snprintf(buf, sizeof(buf), "world_keycards_color%d=%.4f,%.4f,%.4f,%.4f\n", i,
-            (double)S::world_keycards_color[i][0], (double)S::world_keycards_color[i][1],
-            (double)S::world_keycards_color[i][2], (double)S::world_keycards_color[i][3]);
-        payload += buf;
-    }
-
-    snprintf(buf, sizeof(buf), "box_color=%.4f,%.4f,%.4f,%.4f\nbox_outline_color=%.4f,%.4f,%.4f,%.4f\nbox_fill_color=%.4f,%.4f,%.4f,%.4f\nbox_fill_color2=%.4f,%.4f,%.4f,%.4f\nskeleton_color=%.4f,%.4f,%.4f,%.4f\nskeleton_outline_color=%.4f,%.4f,%.4f,%.4f\nhealth_color=%.4f,%.4f,%.4f,%.4f\nhealth_outline_color=%.4f,%.4f,%.4f,%.4f\nname_color=%.4f,%.4f,%.4f,%.4f\nname_outline_color=%.4f,%.4f,%.4f,%.4f\nheaddot_color=%.4f,%.4f,%.4f,%.4f\nheaddot_outline_color=%.4f,%.4f,%.4f,%.4f\ndistance_color=%.4f,%.4f,%.4f,%.4f\ndistance_outline_color=%.4f,%.4f,%.4f,%.4f\ntool_color=%.4f,%.4f,%.4f,%.4f\ntool_outline_color=%.4f,%.4f,%.4f,%.4f\ntracer_color=%.4f,%.4f,%.4f,%.4f\ntracer_outline_color=%.4f,%.4f,%.4f,%.4f\noof_color=%.4f,%.4f,%.4f,%.4f\noof_outline_color=%.4f,%.4f,%.4f,%.4f\noof_name_color=%.4f,%.4f,%.4f,%.4f\noof_health_color=%.4f,%.4f,%.4f,%.4f\noof_distance_color=%.4f,%.4f,%.4f,%.4f\naim_fov_color=%.4f,%.4f,%.4f,%.4f\naim_fov_outline_color=%.4f,%.4f,%.4f,%.4f\naim_fov_fill_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::box_color[0], S::box_color[1], S::box_color[2], S::box_color[3],
-        S::box_outline_color[0], S::box_outline_color[1], S::box_outline_color[2], S::box_outline_color[3],
-        S::box_fill_color[0], S::box_fill_color[1], S::box_fill_color[2], S::box_fill_color[3],
-        S::box_fill_color2[0], S::box_fill_color2[1], S::box_fill_color2[2], S::box_fill_color2[3],
-        S::skeleton_color[0], S::skeleton_color[1], S::skeleton_color[2], S::skeleton_color[3],
-        S::skeleton_outline_color[0], S::skeleton_outline_color[1], S::skeleton_outline_color[2], S::skeleton_outline_color[3],
-        S::health_color[0], S::health_color[1], S::health_color[2], S::health_color[3],
-        S::health_outline_color[0], S::health_outline_color[1], S::health_outline_color[2], S::health_outline_color[3],
-        S::name_color[0], S::name_color[1], S::name_color[2], S::name_color[3],
-        S::name_outline_color[0], S::name_outline_color[1], S::name_outline_color[2], S::name_outline_color[3],
-        S::headdot_color[0], S::headdot_color[1], S::headdot_color[2], S::headdot_color[3],
-        S::headdot_outline_color[0], S::headdot_outline_color[1], S::headdot_outline_color[2], S::headdot_outline_color[3],
-        S::distance_color[0], S::distance_color[1], S::distance_color[2], S::distance_color[3],
-        S::distance_outline_color[0], S::distance_outline_color[1], S::distance_outline_color[2], S::distance_outline_color[3],
-        S::tool_color[0], S::tool_color[1], S::tool_color[2], S::tool_color[3],
-        S::tool_outline_color[0], S::tool_outline_color[1], S::tool_outline_color[2], S::tool_outline_color[3],
-        S::tracer_color[0], S::tracer_color[1], S::tracer_color[2], S::tracer_color[3],
-        S::tracer_outline_color[0], S::tracer_outline_color[1], S::tracer_outline_color[2], S::tracer_outline_color[3],
-        S::oof_color[0], S::oof_color[1], S::oof_color[2], S::oof_color[3],
-        S::oof_outline_color[0], S::oof_outline_color[1], S::oof_outline_color[2], S::oof_outline_color[3],
-        S::oof_name_color[0], S::oof_name_color[1], S::oof_name_color[2], S::oof_name_color[3],
-        S::oof_health_color[0], S::oof_health_color[1], S::oof_health_color[2], S::oof_health_color[3],
-        S::oof_distance_color[0], S::oof_distance_color[1], S::oof_distance_color[2], S::oof_distance_color[3],
-        S::aim_fov_color[0], S::aim_fov_color[1], S::aim_fov_color[2], S::aim_fov_color[3],
-        S::aim_fov_outline_color[0], S::aim_fov_outline_color[1], S::aim_fov_outline_color[2], S::aim_fov_outline_color[3],
-        S::aim_fov_fill_color[0], S::aim_fov_fill_color[1], S::aim_fov_fill_color[2], S::aim_fov_fill_color[3]);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "aim_tracer_color=%.4f,%.4f,%.4f,%.4f\naim_tracer_outline_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::aim_tracer_color[0], S::aim_tracer_color[1], S::aim_tracer_color[2], S::aim_tracer_color[3],
-        S::aim_tracer_outline_color[0], S::aim_tracer_outline_color[1], S::aim_tracer_outline_color[2], S::aim_tracer_outline_color[3]);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "aim_autoshoot_delay=%.2f\naim_distance_value=%.2f\naim_fov=%.2f\naim_fov_fill=%d\naim_fov_outline=%d\naim_health_value=%.2f\naim_smoothing=%.2f\naim_smoothing_x=%.2f\naim_smoothing_y=%.2f\naim_tracer_outline=%d\naim_tracer_thickness=%.2f\n",
-        (double)S::aim_autoshoot_delay, (double)S::aim_distance_value, (double)S::aim_fov,
-        S::aim_fov_fill ? 1 : 0, S::aim_fov_outline ? 1 : 0,
-        (double)S::aim_health_value, (double)S::aim_smoothing, (double)S::aim_smoothing_x, (double)S::aim_smoothing_y,
-        S::aim_tracer_outline ? 1 : 0, (double)S::aim_tracer_thickness);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "fov_value=%.2f\nfreecam_speed=%.2f\nheaddot_thickness=%.2f\nhipheight_value=%.2f\nhitsound_volume=%.2f\njumppower_value=%.2f\noof_radius=%.2f\noof_size=%.2f\ntime_value=%.2f\ntool_distance_value=%.2f\ntracer_thickness=%.2f\nwalkspeed_value=%.2f\nworld_exposure_value=%.2f\nworld_fog_end=%.2f\nworld_fog_start=%.2f\n",
-        (double)S::fov_value, (double)S::freecam_speed, (double)S::headdot_thickness,
-        (double)S::hipheight_value, (double)S::hitsound_volume, (double)S::jumppower_value,
-        (double)S::oof_radius, (double)S::oof_size,
-        (double)S::time_value, (double)S::tool_distance_value, (double)S::tracer_thickness,
-        (double)S::walkspeed_value, (double)S::world_exposure_value, (double)S::world_fog_end,
-        (double)S::world_fog_start);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "hitbox_enabled=%d\nhitbox_scale=%.2f\nhitbox_key=%d\nhitbox_key_mode=%d\nhitbox_part=%d\n",
-        S::hitbox_enabled ? 1 : 0, (double)S::hitbox_scale, S::hitbox_key, S::hitbox_key_mode, S::hitbox_part);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "chams_enabled=%d\nchams_visible_only=%d\nchams_color=%.4f,%.4f,%.4f,%.4f\nchams_color_visible=%.4f,%.4f,%.4f,%.4f\n",
-        S::chams_enabled ? 1 : 0, S::chams_visible_only ? 1 : 0,
+    snprintf(buf, sizeof(buf), "chams_color=%.4f,%.4f,%.4f,%.4f\nchams_outline_color=%.4f,%.4f,%.4f,%.4f\n",
         S::chams_color[0], S::chams_color[1], S::chams_color[2], S::chams_color[3],
-        S::chams_color_visible[0], S::chams_color_visible[1], S::chams_color_visible[2], S::chams_color_visible[3]);
+        S::chams_outline_color[0], S::chams_outline_color[1], S::chams_outline_color[2], S::chams_outline_color[3]);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "whitehits_enabled=%d\nwhitehits_duration=%.2f\nwhitehits_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::whitehits_enabled ? 1 : 0, (double)S::whitehits_duration,
+    // -- Nametags --
+    snprintf(buf, sizeof(buf), "name_enabled=%d\nname_scale=%.2f\nname_bg_transparency=%.2f\nname_show_health=%d\nname_show_distance=%d\nname_use_displayname=%d\nname_show_background=%d\nname_show_tool=%d\nname_team_check=%d\nname_distance_check=%d\nname_distance_min=%.2f\nname_distance_max=%.2f\n",
+        S::name_enabled ? 1 : 0, (double)S::name_scale, (double)S::name_bg_transparency,
+        S::name_show_health ? 1 : 0, S::name_show_distance ? 1 : 0, S::name_use_displayname ? 1 : 0,
+        S::name_show_background ? 1 : 0, S::name_show_tool ? 1 : 0, S::name_team_check ? 1 : 0,
+        S::name_distance_check ? 1 : 0, (double)S::name_distance_min, (double)S::name_distance_max);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "name_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::name_color[0], S::name_color[1], S::name_color[2], S::name_color[3]);
+    payload += buf;
+
+    // -- Kit ESP --
+    snprintf(buf, sizeof(buf), "kitesp_enabled=%d\nkitesp_scale=%.2f\nkitesp_background=%d\nkitesp_alchemist=%d\nkitesp_bee=%d\nkitesp_bigman=%d\nkitesp_ghost=%d\nkitesp_metal=%d\nkitesp_sheep=%d\nkitesp_sorcerer=%d\nkitesp_star=%d\n",
+        S::kitesp_enabled ? 1 : 0, (double)S::kitesp_scale, S::kitesp_background ? 1 : 0,
+        S::kitesp_alchemist ? 1 : 0, S::kitesp_bee ? 1 : 0, S::kitesp_bigman ? 1 : 0,
+        S::kitesp_ghost ? 1 : 0, S::kitesp_metal ? 1 : 0, S::kitesp_sheep ? 1 : 0,
+        S::kitesp_sorcerer ? 1 : 0, S::kitesp_star ? 1 : 0);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "kitesp_color=%.4f,%.4f,%.4f,%.4f\nkitesp_bg_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::kitesp_color[0], S::kitesp_color[1], S::kitesp_color[2], S::kitesp_color[3],
+        S::kitesp_bg_color[0], S::kitesp_bg_color[1], S::kitesp_bg_color[2], S::kitesp_bg_color[3]);
+    payload += buf;
+
+    // -- WhiteHits --
+    snprintf(buf, sizeof(buf), "whitehits_enabled=%d\nwhitehits_duration=%.2f\n",
+        S::whitehits_enabled ? 1 : 0, (double)S::whitehits_duration);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "whitehits_color=%.4f,%.4f,%.4f,%.4f\n",
         S::whitehits_color[0], S::whitehits_color[1], S::whitehits_color[2], S::whitehits_color[3]);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "footsteps_enabled=%d\nfootsteps_radius=%.2f\nfootsteps_lifetime=%.2f\nfootsteps_max=%d\nfootsteps_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::footsteps_enabled ? 1 : 0, (double)S::footsteps_radius, (double)S::footsteps_lifetime, S::footsteps_max,
+    // -- FOV --
+    snprintf(buf, sizeof(buf), "fov_enabled=%d\nfov_value=%.2f\nfov_key=%d\nfov_key_mode=%d\n",
+        S::fov_enabled ? 1 : 0, (double)S::fov_value, S::fov_key, S::fov_key_mode);
+    payload += buf;
+
+    // -- Tracers --
+    snprintf(buf, sizeof(buf), "tracer_enabled=%d\ntracer_start=%d\ntracer_end=%d\ntracer_transparency=%.2f\ntracer_color_by_distance=%d\ntracer_behind=%d\ntracer_team_check=%d\ntracer_distance_check=%d\ntracer_distance_min=%.2f\ntracer_distance_max=%.2f\n",
+        S::tracer_enabled ? 1 : 0, S::tracer_start, S::tracer_end,
+        (double)S::tracer_transparency, S::tracer_color_by_distance ? 1 : 0, S::tracer_behind ? 1 : 0,
+        S::tracer_team_check ? 1 : 0, S::tracer_distance_check ? 1 : 0,
+        (double)S::tracer_distance_min, (double)S::tracer_distance_max);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "tracer_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::tracer_color[0], S::tracer_color[1], S::tracer_color[2], S::tracer_color[3]);
+    payload += buf;
+
+    // -- Equipped Tool --
+    snprintf(buf, sizeof(buf), "tool_enabled=%d\n", S::tool_enabled ? 1 : 0);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "tool_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::tool_color[0], S::tool_color[1], S::tool_color[2], S::tool_color[3]);
+    payload += buf;
+
+    // -- Head Dot --
+    snprintf(buf, sizeof(buf), "headdot_enabled=%d\nheaddot_fill=%d\nheaddot_outline=%d\nheaddot_thickness=%.2f\n",
+        S::headdot_enabled ? 1 : 0, S::headdot_fill ? 1 : 0, S::headdot_outline ? 1 : 0, (double)S::headdot_thickness);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "headdot_color=%.4f,%.4f,%.4f,%.4f\nheaddot_outline_color=%.4f,%.4f,%.4f,%.4f\n",
+        S::headdot_color[0], S::headdot_color[1], S::headdot_color[2], S::headdot_color[3],
+        S::headdot_outline_color[0], S::headdot_outline_color[1], S::headdot_outline_color[2], S::headdot_outline_color[3]);
+    payload += buf;
+
+    // -- Footsteps --
+    snprintf(buf, sizeof(buf), "footsteps_enabled=%d\nfootsteps_radius=%.2f\nfootsteps_lifetime=%.2f\nfootsteps_max=%.0f\n",
+        S::footsteps_enabled ? 1 : 0, (double)S::footsteps_radius, (double)S::footsteps_lifetime, (double)S::footsteps_max);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "footsteps_color=%.4f,%.4f,%.4f,%.4f\n",
         S::footsteps_color[0], S::footsteps_color[1], S::footsteps_color[2], S::footsteps_color[3]);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "kitesp_enabled=%d\nkitesp_outline=%d\nkitesp_bee=%d\nkitesp_metal=%d\nkitesp_sheep=%d\nkitesp_elder=%d\nkitesp_ghost=%d\nkitesp_sorcerer=%d\nkitesp_star=%d\nkitesp_color=%.4f,%.4f,%.4f,%.4f\nkitesp_outline_color=%.4f,%.4f,%.4f,%.4f\n",
-        S::kitesp_enabled ? 1 : 0, S::kitesp_outline ? 1 : 0,
-        S::kitesp_bee ? 1 : 0, S::kitesp_metal ? 1 : 0, S::kitesp_sheep ? 1 : 0,
-        S::kitesp_elder ? 1 : 0, S::kitesp_ghost ? 1 : 0, S::kitesp_sorcerer ? 1 : 0, S::kitesp_star ? 1 : 0,
-        S::kitesp_color[0], S::kitesp_color[1], S::kitesp_color[2], S::kitesp_color[3],
-        S::kitesp_outline_color[0], S::kitesp_outline_color[1], S::kitesp_outline_color[2], S::kitesp_outline_color[3]);
+    // -- Global --
+    snprintf(buf, sizeof(buf), "vis_team_check=%d\n", S::vis_team_check ? 1 : 0);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "targethud_enabled=%d\ntargethud_x=%.2f\ntargethud_y=%.2f\n",
-        S::targethud_enabled ? 1 : 0, (double)S::targethud_x, (double)S::targethud_y);
-    payload += buf;
-
-    snprintf(buf, sizeof(buf), "tickrate_enabled=%d\ntickrate_value=%.2f\nspeed_enabled=%d\nspeed_value=%.2f\nspeed_key=%d\nspeed_key_mode=%d\n",
-        S::tickrate_enabled ? 1 : 0, (double)S::tickrate_value,
-        S::speed_enabled ? 1 : 0, (double)S::speed_value, S::speed_key, S::speed_key_mode);
-    payload += buf;
-
+    // -- UI --
     snprintf(buf, sizeof(buf), "user_name=%s\n", g_textinput1);
     payload += buf;
 
-    snprintf(buf, sizeof(buf), "vsync=%d\nstream_proof=%d\nfps_cap=%d\nwatermark=%d\nwatermark_fps=%d\nwatermark_players=%d\nwatermark_date=%d\nkeybinds=%d\nmovement=%d\nmovement_vel=%d\nmovement_graph=%d\nmovement_keys=%d\ninternal_debug=%d\nbinds_pos=%.1f,%.1f\nmovement_pos=%.1f,%.1f\ndebug_pos=%.1f,%.1f\n", g_vsync ? 1 : 0, g_streamProof ? 1 : 0, g_fpsCap, g_watermark ? 1 : 0, g_watermarkFps ? 1 : 0, g_watermarkPlayers ? 1 : 0, g_watermarkDate ? 1 : 0, g_keybinds ? 1 : 0, g_movement ? 1 : 0, g_movementVelocityOpt ? 1 : 0, g_movementGraphOpt ? 1 : 0, g_movementKeysOpt ? 1 : 0, g_internalDebug ? 1 : 0, g_bindsPos.x, g_bindsPos.y, g_movementPos.x, g_movementPos.y, g_debugPos.x, g_debugPos.y);
+    snprintf(buf, sizeof(buf), "vsync=%d\nstream_proof=%d\nfps_cap=%d\nwatermark=%d\nwatermark_fps=%d\nwatermark_players=%d\nwatermark_date=%d\nkeybinds=%d\n",
+        g_vsync ? 1 : 0, g_streamProof ? 1 : 0, g_fpsCap, g_watermark ? 1 : 0,
+        g_watermarkFps ? 1 : 0, g_watermarkPlayers ? 1 : 0, g_watermarkDate ? 1 : 0, g_keybinds ? 1 : 0);
+    payload += buf;
+
+    snprintf(buf, sizeof(buf), "binds_pos=%.1f,%.1f\n", g_bindsPos.x, g_bindsPos.y);
     payload += buf;
 
     snprintf(buf, sizeof(buf), "theme_mask=%d\n", g_themeMask);
@@ -5742,299 +4948,6 @@ inline bool ApplyConfigRaw(const std::string& raw)
         }
     };
 
-    get_bool("aim_enabled", S::aim_enabled);
-    get_int("aim_key", S::aim_key);
-    get_int("aim_key_mode", S::aim_key_mode);
-    get_int("aim_method", S::aim_method);
-    if (S::aim_method > 4) S::aim_method = 0;
-    else if (S::aim_method > 0) S::aim_method -= 1;
-    if (S::aim_method < 0 || S::aim_method > 3) S::aim_method = 0;
-    get_int("aim_part", S::aim_part);
-    get_float("aim_fov", S::aim_fov);
-    get_bool("aim_smoothing_enabled", S::aim_smoothing_enabled);
-    get_float("aim_smoothing", S::aim_smoothing);
-    get_float("aim_smoothing_x", S::aim_smoothing_x);
-    get_float("aim_smoothing_y", S::aim_smoothing_y);
-    get_bool("aim_show_fov", S::aim_show_fov);
-    get_bool("aim_fov_fill", S::aim_fov_fill);
-    get_bool("aim_fov_outline", S::aim_fov_outline);
-    get_bool("aim_tracer_outline", S::aim_tracer_outline);
-    get_int("aim_fov_style", S::aim_fov_style);
-    if (S::aim_fov_style < 0 || S::aim_fov_style > 1) S::aim_fov_style = 0;
-    get_bool("aim_team_check", S::aim_team_check);
-    get_bool("aim_visible_check", S::aim_visible_check);
-    get_bool("aim_magicbullet", S::aim_magicbullet);
-    get_bool("aim_tracer", S::aim_tracer);
-    get_float("aim_tracer_thickness", S::aim_tracer_thickness);
-    get_bool("vis_team_check", S::vis_team_check);
-    get_bool("aim_health_check", S::aim_health_check);
-    get_float("aim_health_value", S::aim_health_value);
-    get_bool("aim_distance_check", S::aim_distance_check);
-    get_float("aim_distance_value", S::aim_distance_value);
-    get_bool("aim_autoshoot", S::aim_autoshoot);
-    get_int("aim_autoshoot_key", S::aim_autoshoot_key);
-    get_int("aim_autoshoot_key_mode", S::aim_autoshoot_key_mode);
-    get_float("aim_autoshoot_delay", S::aim_autoshoot_delay);
-    get_bool("aim_deadzone_enabled", S::aim_deadzone_enabled);
-    get_int("aim_deadzone_min", S::aim_deadzone_min);
-    get_int("aim_deadzone_max", S::aim_deadzone_max);
-    get_bool("box_enabled", S::box_enabled);
-    get_int("box_mode", S::box_mode);
-    get_int("box_style", S::box_style);
-    get_bool("box_outline", S::box_outline);
-    get_bool("box_filled", S::box_filled);
-    get_bool("box_fill_gradient", S::box_fill_gradient);
-    get_bool("skeleton_enabled", S::skeleton_enabled);
-    get_bool("skeleton_outline", S::skeleton_outline);
-    get_bool("health_enabled", S::health_enabled);
-    get_bool("health_outline", S::health_outline);
-    get_bool("health_gradient", S::health_gradient);
-    get_bool("health_text", S::health_text);
-    get_bool("name_enabled", S::name_enabled);
-    get_bool("name_outline", S::name_outline);
-    get_bool("headdot_enabled", S::headdot_enabled);
-    get_bool("headdot_fill", S::headdot_fill);
-    get_bool("headdot_outline", S::headdot_outline);
-    get_float("headdot_thickness", S::headdot_thickness);
-    get_bool("distance_enabled", S::distance_enabled);
-    get_bool("distance_outline", S::distance_outline);
-    get_bool("tool_enabled", S::tool_enabled);
-    get_bool("tool_outline", S::tool_outline);
-    get_bool("tool_distance_check", S::tool_distance_check);
-    get_float("tool_distance_value", S::tool_distance_value);
-    get_bool("flags_team", S::flags_team);
-    get_bool("flags_global", S::flags_global);
-    get_bool("flags_outline", S::flags_outline);
-    get_bool("flags_team_outline", S::flags_team_outline);
-    get_bool("flags_state", S::flags_state);
-    get_bool("flags_state_outline", S::flags_state_outline);
-    get_bool("flags_health", S::flags_health);
-    get_bool("flags_health_outline", S::flags_health_outline);
-    if (raw.find("flags_enabled=") != std::string::npos) {
-        get_bool("flags_enabled", S::flags_enabled);
-    } else {
-        S::flags_enabled = (S::flags_team || S::flags_state || S::flags_health);
-    }
-    get_bool("tracer_enabled", S::tracer_enabled);
-    get_bool("tracer_outline", S::tracer_outline);
-    get_int("tracer_origin", S::tracer_origin);
-    get_float("tracer_thickness", S::tracer_thickness);
-    get_bool("oof_enabled", S::oof_enabled);
-    get_bool("oof_outline", S::oof_outline);
-    get_float("oof_size", S::oof_size);
-    get_float("oof_radius", S::oof_radius);
-    get_int("oof_arrow_style", S::oof_arrow_style);
-    get_bool("oof_names", S::oof_names);
-    get_bool("oof_health", S::oof_health);
-    get_bool("oof_distance", S::oof_distance);
-    get_bool("oof_avatar", S::oof_avatar);
-    get_bool("walkspeed_enabled", S::walkspeed_enabled);
-    get_float("walkspeed_value", S::walkspeed_value);
-    get_int("walkspeed_key", S::walkspeed_key);
-    get_int("walkspeed_key_mode", S::walkspeed_key_mode);
-    get_bool("jumppower_enabled", S::jumppower_enabled);
-    get_float("jumppower_value", S::jumppower_value);
-    get_int("jumppower_key", S::jumppower_key);
-    get_int("jumppower_key_mode", S::jumppower_key_mode);
-    get_bool("fov_enabled", S::fov_enabled);
-    get_float("fov_value", S::fov_value);
-    get_int("fov_key", S::fov_key);
-    get_int("fov_key_mode", S::fov_key_mode);
-    get_bool("noclip_enabled", S::noclip_enabled);
-    get_int("noclip_key", S::noclip_key);
-    get_int("noclip_key_mode", S::noclip_key_mode);
-    get_bool("freecam_enabled", S::freecam_enabled);
-    get_int("freecam_key", S::freecam_key);
-    get_int("freecam_key_mode", S::freecam_key_mode);
-    get_float("freecam_speed", S::freecam_speed);
-    get_float("freecam_sensitivity", S::freecam_sensitivity);
-    get_bool("hipheight_enabled", S::hipheight_enabled);
-    get_float("hipheight_value", S::hipheight_value);
-    get_int("hipheight_key", S::hipheight_key);
-    get_int("hipheight_key_mode", S::hipheight_key_mode);
-    get_bool("infjump_enabled", S::infjump_enabled);
-    get_int("infjump_key", S::infjump_key);
-    get_int("infjump_key_mode", S::infjump_key_mode);
-    get_bool("hitsound_enabled", S::hitsound_enabled);
-    get_int("hitsound_selected", S::hitsound_selected);
-    get_int("hitsound_mode", S::hitsound_mode);
-    get_float("hitsound_volume", S::hitsound_volume);
-    get_bool("hitbox_enabled", S::hitbox_enabled);
-    get_float("hitbox_scale", S::hitbox_scale);
-    get_int("hitbox_key", S::hitbox_key);
-    get_int("hitbox_key_mode", S::hitbox_key_mode);
-    get_int("hitbox_part", S::hitbox_part);
-    get_bool("chams_enabled", S::chams_enabled);
-    get_bool("chams_visible_only", S::chams_visible_only);
-    get_bool("whitehits_enabled", S::whitehits_enabled);
-    get_float("whitehits_duration", S::whitehits_duration);
-    get_bool("footsteps_enabled", S::footsteps_enabled);
-    get_float("footsteps_radius", S::footsteps_radius);
-    get_float("footsteps_lifetime", S::footsteps_lifetime);
-    get_int("footsteps_max", S::footsteps_max);
-    get_bool("kitesp_enabled", S::kitesp_enabled);
-    get_bool("kitesp_outline", S::kitesp_outline);
-    get_bool("kitesp_bee", S::kitesp_bee);
-    get_bool("kitesp_metal", S::kitesp_metal);
-    get_bool("kitesp_sheep", S::kitesp_sheep);
-    get_bool("kitesp_elder", S::kitesp_elder);
-    get_bool("kitesp_ghost", S::kitesp_ghost);
-    get_bool("kitesp_sorcerer", S::kitesp_sorcerer);
-    get_bool("kitesp_star", S::kitesp_star);
-    get_bool("targethud_enabled", S::targethud_enabled);
-    get_float("targethud_x", S::targethud_x);
-    get_float("targethud_y", S::targethud_y);
-    get_bool("tickrate_enabled", S::tickrate_enabled);
-    get_float("tickrate_value", S::tickrate_value);
-    get_bool("speed_enabled", S::speed_enabled);
-    get_float("speed_value", S::speed_value);
-    get_int("speed_key", S::speed_key);
-    get_int("speed_key_mode", S::speed_key_mode);
-    get_bool("time_enabled", S::time_enabled);
-    get_float("time_value", S::time_value);
-    get_bool("world_fog_enabled", S::world_fog_enabled);
-    get_float("world_fog_start", S::world_fog_start);
-    get_float("world_fog_end", S::world_fog_end);
-    get_bool("world_exposure_enabled", S::world_exposure_enabled);
-    get_float("world_exposure_value", S::world_exposure_value);
-    get_bool("world_ore_enabled", S::world_ore_enabled);
-    get_int("world_ore_key", S::world_ore_key);
-    get_int("world_ore_key_mode", S::world_ore_key_mode);
-    get_int("world_plant_key", S::world_plant_key);
-    get_int("world_plant_key_mode", S::world_plant_key_mode);
-    {
-        std::string tag = "world_ore_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_ore_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_ore_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_ore_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    get_bool("world_ore_stone", S::world_ore_stone);
-    get_bool("world_ore_phosphate", S::world_ore_phosphate);
-    get_bool("world_ore_metal", S::world_ore_metal);
-    get_bool("world_plant_enabled", S::world_plant_enabled);
-    get_bool("world_bots_enabled", S::world_bots_enabled);
-    get_int("world_bots_key", S::world_bots_key);
-    get_int("world_bots_key_mode", S::world_bots_key_mode);
-    get_bool("world_animals_enabled", S::world_animals_enabled);
-    get_int("world_animals_key", S::world_animals_key);
-    get_int("world_animals_key_mode", S::world_animals_key_mode);
-    get_bool("world_tools_enabled", S::world_tools_enabled);
-    get_int("world_tools_key", S::world_tools_key);
-    get_int("world_tools_key_mode", S::world_tools_key_mode);
-    get_bool("world_crates_enabled", S::world_crates_enabled);
-    get_int("world_crates_key", S::world_crates_key);
-    get_int("world_crates_key_mode", S::world_crates_key_mode);
-    get_bool("world_keycards_enabled", S::world_keycards_enabled);
-    get_int("world_keycards_key", S::world_keycards_key);
-    get_int("world_keycards_key_mode", S::world_keycards_key_mode);
-    {
-        std::string tag = "world_animals_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_animals_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_animals_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_animals_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_animals_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_animals_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_plant_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 7; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_plant_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
     auto get_col_arr = [&](const char* key, float arr[4]) {
         std::string tag = std::string(key) + "=";
         size_t p = raw.find(tag);
@@ -6059,345 +4972,7 @@ inline bool ApplyConfigRaw(const std::string& raw)
             arr[0] = r; arr[1] = g; arr[2] = b; arr[3] = a;
         }
     };
-    get_col_arr("box_color", S::box_color);
-    get_col_arr("box_outline_color", S::box_outline_color);
-    get_col_arr("box_fill_color", S::box_fill_color);
-    get_col_arr("box_fill_color2", S::box_fill_color2);
-    get_col_arr("skeleton_color", S::skeleton_color);
-    get_col_arr("skeleton_outline_color", S::skeleton_outline_color);
-    get_col_arr("health_color", S::health_color);
-    get_col_arr("health_outline_color", S::health_outline_color);
-    get_col_arr("name_color", S::name_color);
-    get_col_arr("name_outline_color", S::name_outline_color);
-    get_col_arr("headdot_color", S::headdot_color);
-    get_col_arr("headdot_outline_color", S::headdot_outline_color);
-    get_col_arr("distance_color", S::distance_color);
-    get_col_arr("distance_outline_color", S::distance_outline_color);
-    get_col_arr("tool_color", S::tool_color);
-    get_col_arr("tool_outline_color", S::tool_outline_color);
-    get_col_arr("flags_color", S::flags_color);
-    get_col_arr("flags_outline_color", S::flags_outline_color);
-    get_col_arr("flags_team_color", S::flags_team_color);
-    get_col_arr("flags_team_outline_color", S::flags_team_outline_color);
-    get_col_arr("flags_state_color", S::flags_state_color);
-    get_col_arr("flags_state_outline_color", S::flags_state_outline_color);
-    get_col_arr("flags_health_color", S::flags_health_color);
-    get_col_arr("flags_health_outline_color", S::flags_health_outline_color);
-    get_col_arr("tracer_color", S::tracer_color);
-    get_col_arr("tracer_outline_color", S::tracer_outline_color);
-    get_col_arr("oof_color", S::oof_color);
-    get_col_arr("oof_outline_color", S::oof_outline_color);
-    get_col_arr("oof_name_color", S::oof_name_color);
-    get_col_arr("oof_health_color", S::oof_health_color);
-    get_col_arr("oof_distance_color", S::oof_distance_color);
-    get_col_arr("aim_fov_color", S::aim_fov_color);
-    get_col_arr("aim_fov_outline_color", S::aim_fov_outline_color);
-    get_col_arr("aim_fov_fill_color", S::aim_fov_fill_color);
-    get_col_arr("aim_tracer_color", S::aim_tracer_color);
-    get_col_arr("aim_tracer_outline_color", S::aim_tracer_outline_color);
-    get_col_arr("chams_color", S::chams_color);
-    get_col_arr("chams_color_visible", S::chams_color_visible);
-    get_col_arr("whitehits_color", S::whitehits_color);
-    get_col_arr("footsteps_color", S::footsteps_color);
-    get_col_arr("kitesp_color", S::kitesp_color);
-    get_col_arr("kitesp_outline_color", S::kitesp_outline_color);
-    get_col_arr("world_fog_color", S::world_fog_color);
-    get_col_arr("world_ore_stone_color", S::world_ore_stone_color);
-    get_col_arr("world_ore_phosphate_color", S::world_ore_phosphate_color);
-    get_col_arr("world_ore_metal_color", S::world_ore_metal_color);
-    for (int i = 0; i < 7; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_plant_color%d", i);
-        get_col_arr(k, S::world_plant_color[i]);
-    }
-    {
-        std::string tag = "world_bots_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_bots_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    for (int i = 0; i < 3; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_bots_color%d", i);
-        get_col_arr(k, S::world_bots_color[i]);
-    }
-    for (int i = 0; i < 3; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_animals_color%d", i);
-        get_col_arr(k, S::world_animals_color[i]);
-    }
-    {
-        std::string tag = "world_tools_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 7; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_tools_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_tools_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 7; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_tools_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_tools_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 7; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_tools_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    for (int i = 0; i < 7; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_tools_color%d", i);
-        get_col_arr(k, S::world_tools_color[i]);
-    }
-    {
-        std::string tag = "world_crates_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 8; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_crates_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_crates_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 8; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_crates_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_crates_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 8; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_crates_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    for (int i = 0; i < 8; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_crates_color%d", i);
-        get_col_arr(k, S::world_crates_color[i]);
-    }
-    {
-        std::string tag = "world_keycards_sel=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 5; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_keycards_sel[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_keycards_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 5; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_keycards_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_keycards_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 5; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_keycards_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    for (int i = 0; i < 5; ++i)
-    {
-        char k[48];
-        snprintf(k, sizeof(k), "world_keycards_color%d", i);
-        get_col_arr(k, S::world_keycards_color[i]);
-    }
-    {
-        std::string tag = "world_bots_box=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_bots_box[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_bots_name=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_bots_name[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    {
-        std::string tag = "world_bots_dist=";
-        size_t p = raw.find(tag);
-        if (p != std::string::npos)
-        {
-            const char* s = raw.c_str() + p + tag.size();
-            for (int i = 0; i < 3; ++i)
-            {
-                char* end = nullptr;
-                long v = strtol(s, &end, 10);
-                if (end == s)
-                    break;
-                S::world_bots_dist[i] = (v != 0);
-                s = end;
-                if (*s == ',')
-                    ++s;
-            }
-        }
-    }
-    get_str("user_name", g_textinput1, sizeof(g_textinput1));
-    get_bool("vsync", g_vsync);
-    get_bool("stream_proof", g_streamProof);
-    get_int("fps_cap", g_fpsCap);
-    get_bool("watermark", g_watermark);
-    get_bool("watermark_fps", g_watermarkFps);
-    get_bool("watermark_players", g_watermarkPlayers);
-    get_bool("watermark_date", g_watermarkDate);
-    get_bool("keybinds", g_keybinds);
-    get_bool("internal_debug", g_internalDebug);
+
     auto get_vec2 = [&](const char* key, ImVec2& out) {
         std::string tag = std::string(key) + "=";
         size_t p = raw.find(tag);
@@ -6412,13 +4987,136 @@ inline bool ApplyConfigRaw(const std::string& raw)
             }
         }
     };
+
+    // -- Aim Assist --
+    get_bool("aim_enabled", S::aim_enabled);
+    get_int("aim_key", S::aim_key);
+    get_int("aim_key_mode", S::aim_key_mode);
+    get_int("aim_part", S::aim_part);
+    get_float("aim_fov", S::aim_fov);
+    get_float("aim_speed", S::aim_speed);
+    get_bool("aim_range_circle", S::aim_range_circle);
+    get_col_arr("aim_circle_color", S::aim_circle_color);
+    get_float("aim_circle_transparency", S::aim_circle_transparency);
+    get_float("aim_circle_thickness", S::aim_circle_thickness);
+    get_bool("aim_circle_filled", S::aim_circle_filled);
+    get_bool("aim_require_rclick", S::aim_require_rclick);
+    get_bool("aim_team_check", S::aim_team_check);
+
+    // -- ESP --
+    get_bool("esp_enabled", S::esp_enabled);
+    get_int("esp_mode", S::esp_mode);
+    get_col_arr("esp_color", S::esp_color);
+    get_bool("esp_bounding_box", S::esp_bounding_box);
+    get_bool("esp_filled", S::esp_filled);
+    get_col_arr("esp_fill_color", S::esp_fill_color);
+    get_int("esp_box_style", S::esp_box_style);
+    get_bool("esp_team_check", S::esp_team_check);
+    get_bool("esp_distance_check", S::esp_distance_check);
+    get_float("esp_distance_min", S::esp_distance_min);
+    get_float("esp_distance_max", S::esp_distance_max);
+
+    // -- Health, Skeleton --
+    get_bool("health_enabled", S::health_enabled);
+    get_bool("skeleton_enabled", S::skeleton_enabled);
+    get_col_arr("skeleton_color", S::skeleton_color);
+
+    // -- Chams --
+    get_bool("chams_enabled", S::chams_enabled);
+    get_col_arr("chams_color", S::chams_color);
+    get_col_arr("chams_outline_color", S::chams_outline_color);
+    get_float("chams_transparency", S::chams_transparency);
+    get_float("chams_outline_transparency", S::chams_outline_transparency);
+    get_bool("chams_render_walls", S::chams_render_walls);
+    get_bool("chams_team_check", S::chams_team_check);
+
+    // -- Nametags --
+    get_bool("name_enabled", S::name_enabled);
+    get_col_arr("name_color", S::name_color);
+    get_float("name_scale", S::name_scale);
+    get_float("name_bg_transparency", S::name_bg_transparency);
+    get_bool("name_show_health", S::name_show_health);
+    get_bool("name_show_distance", S::name_show_distance);
+    get_bool("name_use_displayname", S::name_use_displayname);
+    get_bool("name_show_background", S::name_show_background);
+    get_bool("name_show_tool", S::name_show_tool);
+    get_bool("name_team_check", S::name_team_check);
+    get_bool("name_distance_check", S::name_distance_check);
+    get_float("name_distance_min", S::name_distance_min);
+    get_float("name_distance_max", S::name_distance_max);
+
+    // -- Kit ESP --
+    get_bool("kitesp_enabled", S::kitesp_enabled);
+    get_col_arr("kitesp_color", S::kitesp_color);
+    get_float("kitesp_scale", S::kitesp_scale);
+    get_bool("kitesp_background", S::kitesp_background);
+    get_col_arr("kitesp_bg_color", S::kitesp_bg_color);
+    get_bool("kitesp_alchemist", S::kitesp_alchemist);
+    get_bool("kitesp_bee", S::kitesp_bee);
+    get_bool("kitesp_bigman", S::kitesp_bigman);
+    get_bool("kitesp_ghost", S::kitesp_ghost);
+    get_bool("kitesp_metal", S::kitesp_metal);
+    get_bool("kitesp_sheep", S::kitesp_sheep);
+    get_bool("kitesp_sorcerer", S::kitesp_sorcerer);
+    get_bool("kitesp_star", S::kitesp_star);
+
+    // -- WhiteHits --
+    get_bool("whitehits_enabled", S::whitehits_enabled);
+    get_col_arr("whitehits_color", S::whitehits_color);
+    get_float("whitehits_duration", S::whitehits_duration);
+
+    // -- FOV --
+    get_bool("fov_enabled", S::fov_enabled);
+    get_float("fov_value", S::fov_value);
+    get_int("fov_key", S::fov_key);
+    get_int("fov_key_mode", S::fov_key_mode);
+
+    // -- Tracers --
+    get_bool("tracer_enabled", S::tracer_enabled);
+    get_col_arr("tracer_color", S::tracer_color);
+    get_int("tracer_start", S::tracer_start);
+    get_int("tracer_end", S::tracer_end);
+    get_float("tracer_transparency", S::tracer_transparency);
+    get_bool("tracer_color_by_distance", S::tracer_color_by_distance);
+    get_bool("tracer_behind", S::tracer_behind);
+    get_bool("tracer_team_check", S::tracer_team_check);
+    get_bool("tracer_distance_check", S::tracer_distance_check);
+    get_float("tracer_distance_min", S::tracer_distance_min);
+    get_float("tracer_distance_max", S::tracer_distance_max);
+
+    // -- Equipped Tool --
+    get_bool("tool_enabled", S::tool_enabled);
+    get_col_arr("tool_color", S::tool_color);
+
+    // -- Head Dot --
+    get_bool("headdot_enabled", S::headdot_enabled);
+    get_col_arr("headdot_color", S::headdot_color);
+    get_bool("headdot_fill", S::headdot_fill);
+    get_bool("headdot_outline", S::headdot_outline);
+    get_col_arr("headdot_outline_color", S::headdot_outline_color);
+    get_float("headdot_thickness", S::headdot_thickness);
+
+    // -- Footsteps --
+    get_bool("footsteps_enabled", S::footsteps_enabled);
+    get_col_arr("footsteps_color", S::footsteps_color);
+    get_float("footsteps_radius", S::footsteps_radius);
+    get_float("footsteps_lifetime", S::footsteps_lifetime);
+    get_float("footsteps_max", S::footsteps_max);
+
+    // -- Global --
+    get_bool("vis_team_check", S::vis_team_check);
+
+    // -- UI --
+    get_str("user_name", g_textinput1, sizeof(g_textinput1));
+    get_bool("vsync", g_vsync);
+    get_bool("stream_proof", g_streamProof);
+    get_int("fps_cap", g_fpsCap);
+    get_bool("watermark", g_watermark);
+    get_bool("watermark_fps", g_watermarkFps);
+    get_bool("watermark_players", g_watermarkPlayers);
+    get_bool("watermark_date", g_watermarkDate);
+    get_bool("keybinds", g_keybinds);
     get_vec2("binds_pos", g_bindsPos);
-    get_vec2("movement_pos", g_movementPos);
-    get_vec2("debug_pos", g_debugPos);
-    get_bool("movement", g_movement);
-    get_bool("movement_vel", g_movementVelocityOpt);
-    get_bool("movement_graph", g_movementGraphOpt);
-    get_bool("movement_keys", g_movementKeysOpt);
     get_int("theme_mask", g_themeMask);
     get_col("accent", g_accent1);
     get_col("col_frame", g_colFrame);
@@ -6969,6 +5667,7 @@ inline void RenderThemePanel()
 
 inline void RenderExplorerPanel()
 {
+    return; // stubbed out
     static bool s_wasOpen = false;
     if (!g_explorerOpen)
     {
@@ -7042,6 +5741,7 @@ inline void RenderExplorerPanel()
 
 inline void RenderPlayerPreviewPanel()
 {
+    return; // stubbed out
     if (!g_playerPreviewOpen)
     {
         return;

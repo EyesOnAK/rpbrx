@@ -26,17 +26,24 @@ namespace rpbrx::visual::health
         if (fillTop < by0) fillTop = by0;
         if (frac > 0.001f) {
             if (gradient) {
-                ImU32 topCol = IM_COL32(255, 0, 0, 255);
-                ImU32 midCol = IM_COL32(255, 255, 0, 255);
-                ImU32 botCol = IM_COL32(0, 255, 0, 255);
-                float midY = by0 + h * 0.5f;
-                dl->AddRectFilledMultiColor(ImVec2(bx0, by0), ImVec2(bx1, midY), topCol, topCol, midCol, midCol);
-                dl->AddRectFilledMultiColor(ImVec2(bx0, midY), ImVec2(bx1, by1), midCol, midCol, botCol, botCol);
+                // Catsix HSV gradient: red at 0, green at full
+                float r1, g1, b1, r2, g2, b2;
+                ImGui::ColorConvertHSVtoRGB(0.0f, 0.89f, 0.75f, r1, g1, b1); // red end
+                ImGui::ColorConvertHSVtoRGB(0.4f, 0.89f, 0.75f, r2, g2, b2); // green end
+                ImU32 topCol = ImGui::ColorConvertFloat4ToU32(ImVec4(r1, g1, b1, 1.0f));
+                ImU32 botCol = ImGui::ColorConvertFloat4ToU32(ImVec4(r2, g2, b2, 1.0f));
+                dl->AddRectFilledMultiColor(ImVec2(bx0, by0), ImVec2(bx1, by1), topCol, topCol, botCol, botCol);
                 if (fillTop > by0) {
                     dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, fillTop), IM_COL32(0,0,0,200));
                 }
             } else {
-                ImU32 c = barCol ? barCol : IM_COL32((int)(255 * (1.f - frac)), (int)(255 * frac), 0, 255);
+                // Use catsix HSV formula for bar color if no explicit color provided
+                ImU32 c = barCol;
+                if (!c) {
+                    float hr, hg, hb;
+                    ImGui::ColorConvertHSVtoRGB(frac / 2.5f, 0.89f, 0.75f, hr, hg, hb);
+                    c = ImGui::ColorConvertFloat4ToU32(ImVec4(hr, hg, hb, 1.0f));
+                }
                 dl->AddRectFilled(ImVec2(bx0, fillTop), ImVec2(bx1, by1), c);
             }
         }

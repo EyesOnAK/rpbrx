@@ -1,130 +1,22 @@
 #include "mouse.h"
 #include "../core/aim.h"
 #include "../health/health.h"
-#include "../distance/distance.h"
-#include "../tracking/tracking.h"
-#include "../pftarget/pftarget.h"
 #include "../../../utility/cache/cache.h"
 #include "../../../utility/struct/world2screen.h"
 #include "../../../utility/global/globals.h"
 #include "../../../menu/overlay/settings.h"
-#include "../hitbox/hitbox.h"
 #include <Windows.h>
 #include <cmath>
 #include <algorithm>
 #include <chrono>
-#include <vector>
 
 namespace rpbrx::aim::mouse
 {
-    static inline node get_target_node(const node& character, int partIdx);
-
-    struct CachedTarget
-    {
-        uintptr_t playerAddr = 0;
-        uintptr_t characterAddr = 0;
-        uintptr_t humanoidAddr = 0;
-        uintptr_t targetPrim = 0;
-        int partIdx = -1;
-    };
-
-    static std::vector<CachedTarget> s_targets;
-    static std::chrono::steady_clock::time_point s_lastResolve{};
-    static std::chrono::steady_clock::time_point s_lastScan{};
-
+    // -- sub-pixel accumulation & rate limiting --
     static float s_remX = 0.0f;
     static float s_remY = 0.0f;
-    static bool s_inDeadzone = false;
-    static uintptr_t s_dzPlayer = 0;
     static std::chrono::steady_clock::time_point s_lastSend{};
-
-    static void resolve_targets()
-    {
-        s_targets.clear();
-        int wantPart = settings::aim_part;
-        auto list = g_ctx.player_list();
-        s_targets.reserve(list.size());
-        for (auto& entry : list)
-        {
-            if (entry.addr == g_ctx.local_player.addr)
-                continue;
-            node character = g_ctx.get_character(entry);
-            if (!character)
-                continue;
-            uintptr_t charAddr = character.addr;
-            node humanoid = find_live_humanoid(character);
-            if (!humanoid)
-                continue;
-            node targetPart = get_target_node(character, wantPart);
-            if (!targetPart)
-                targetPart = character.find_child("Head");
-            if (!targetPart)
-                continue;
-            uintptr_t prim = targetPart.primitive();
-            if (!prim)
-                continue;
-            CachedTarget t{};
-            t.playerAddr = entry.addr;
-            t.characterAddr = charAddr;
-            t.humanoidAddr = humanoid.addr;
-            t.targetPrim = prim;
-            t.partIdx = wantPart;
-            s_targets.push_back(t);
-        }
-    }
-
-    static inline node get_target_node(const node& character, int partIdx)
-    {
-        switch (partIdx)
-        {
-        case 0:
-            return character.find_child("Head");
-        case 1:
-        {
-            node t = character.find_child("UpperTorso");
-            if (!t) t = character.find_child("Torso");
-            if (!t) t = character.find_child("HumanoidRootPart");
-            return t;
-        }
-        case 2:
-        {
-            node hrp = character.find_child("HumanoidRootPart");
-            if (!hrp) hrp = character.find_child("Torso");
-            if (!hrp) hrp = character.find_child("UpperTorso");
-            return hrp;
-        }
-        case 3:
-        {
-            node a = character.find_child("LeftUpperArm");
-            if (!a) a = character.find_child("Left Arm");
-            if (!a) a = character.find_child("LeftLowerArm");
-            return a;
-        }
-        case 4:
-        {
-            node a = character.find_child("RightUpperArm");
-            if (!a) a = character.find_child("Right Arm");
-            if (!a) a = character.find_child("RightLowerArm");
-            return a;
-        }
-        case 5:
-        {
-            node l = character.find_child("LeftUpperLeg");
-            if (!l) l = character.find_child("Left Leg");
-            if (!l) l = character.find_child("LeftLowerLeg");
-            return l;
-        }
-        case 6:
-        {
-            node l = character.find_child("RightUpperLeg");
-            if (!l) l = character.find_child("Right Leg");
-            if (!l) l = character.find_child("RightLowerLeg");
-            return l;
-        }
-        default:
-            return character.find_child("Head");
-        }
-    }
+    static std::chrono::steady_clock::time_point s_lastFrame{};
 
     static void send_mouse_move(float dx, float dy)
     {
@@ -163,70 +55,22 @@ namespace rpbrx::aim::mouse
         SendInput(1, &in, sizeof(in));
     }
 
-    static void pf_run(int w, int h)
+    // -- resolve target part using catsix mapping: 0=HumanoidRootPart, 1=Head --
+    static node get_target_part(const node& character, int partIdx)
     {
-        pftarget::PfBest b{};
-        if (!pftarget::select_best(w, h, b))
-        {
-            s_inDeadzone = false;
-            s_dzPlayer = 0;
-            s_remX = 0.0f;
-            s_remY = 0.0f;
-            rpbrx::aim::clear_debug_target();
-            return;
-        }
-        if (b.model != s_dzPlayer)
-        {
-            s_inDeadzone = false;
-            s_dzPlayer = b.model;
-        }
+        if (partIdx == 1)
+            return character.find_child("Head");
 
-        if (settings::aim_deadzone_enabled)
-        {
-            int dzMin = settings::aim_deadzone_min;
-            int dzMax = settings::aim_deadzone_max;
-            if (dzMin < 0) dzMin = 0;
-            if (dzMax < dzMin) dzMax = dzMin;
-            if (!s_inDeadzone && b.dist2d <= (float)dzMin)
-                s_inDeadzone = true;
-            else if (s_inDeadzone && b.dist2d > (float)dzMax)
-                s_inDeadzone = false;
-            if (s_inDeadzone)
-                return;
-        }
-        else
-        {
-            s_inDeadzone = false;
-        }
-
-        rpbrx::aim::set_debug_target(b.world, b.model);
-
-        float dx = b.screen.x - (float)w * 0.5f;
-        float dy = b.screen.y - (float)h * 0.5f;
-
-        if (!std::isfinite(dx) || !std::isfinite(dy))
-            return;
-        if (fabsf(dx) > (float)w || fabsf(dy) > (float)h)
-            return;
-
-        if (settings::aim_smoothing_enabled)
-        {
-            float sx = settings::aim_smoothing_x;
-            float sy = settings::aim_smoothing_y;
-            if (sx < 1.0f) sx = 1.0f;
-            if (sy < 1.0f) sy = 1.0f;
-            dx /= sx;
-            dy /= sy;
-        }
-
-        send_mouse_move(dx, dy);
+        // 0 = RootPart
+        node hrp = character.find_child("HumanoidRootPart");
+        if (!hrp) hrp = character.find_child("Torso");
+        if (!hrp) hrp = character.find_child("UpperTorso");
+        return hrp;
     }
 
     void run(int w, int h)
     {
-        if (!g_ctx.ready)
-            return;
-        if (!g_ctx.camera)
+        if (!g_ctx.ready || !g_ctx.camera)
             return;
         if (w <= 0 || h <= 0)
             return;
@@ -238,157 +82,114 @@ namespace rpbrx::aim::mouse
             return;
         }
 
+        // deltaTime
         auto now = std::chrono::steady_clock::now();
-        if (now - s_lastScan < std::chrono::milliseconds(4))
-            return;
-        s_lastScan = now;
-
-        if (pftarget::active())
+        float dt = 0.004f;
+        if (s_lastFrame != std::chrono::steady_clock::time_point{})
         {
-            pf_run(w, h);
-            return;
+            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - s_lastFrame).count();
+            dt = static_cast<float>(elapsed) / 1000000.0f;
+            if (dt <= 0.0f || dt > 0.1f) dt = 0.004f;
         }
-
-        int wantPart = settings::aim_part;
-        if (s_targets.empty()
-            || now - s_lastResolve >= std::chrono::milliseconds(200)
-            || s_targets[0].partIdx != wantPart)
-        {
-            resolve_targets();
-            s_lastResolve = now;
-            if (s_targets.empty())
-                return;
-        }
+        s_lastFrame = now;
 
         float cx = static_cast<float>(w) * 0.5f;
         float cy = static_cast<float>(h) * 0.5f;
 
         const math::view_matrix& view = g_ctx.view;
 
-        math::vec3 camPos = g_proc->read<math::vec3>(g_ctx.camera.addr + Offsets::Camera::Position);
-        if (camPos.x == 0.0f && camPos.y == 0.0f && camPos.z == 0.0f)
-            return;
+        int wantPart = settings::aim_part;
+        float fov = settings::aim_fov;
 
-        math::vec3 best{};
+        // find closest target in FOV circle
+        math::vec3 bestWorld{};
+        math::vec2 bestScreen{};
         bool found = false;
-        float bestDist = settings::aim_fov;
+        float bestDist = fov;
         uintptr_t bestPlayer = 0;
 
-        for (auto& t : s_targets)
+        auto list = g_ctx.player_list();
+        for (auto& entry : list)
         {
-            uintptr_t charAddr = g_proc->read<uintptr_t>(t.playerAddr + Offsets::Player::ModelInstance);
-            if (charAddr != t.characterAddr)
-            {
-                tracking::clear(t.playerAddr);
+            if (entry.addr == g_ctx.local_player.addr)
                 continue;
+
+            node character = g_ctx.get_character(entry);
+            if (!character)
+                continue;
+
+            // team check
+            if (settings::aim_team_check)
+            {
+                int localTeam = g_proc->read<int>(g_ctx.local_player.addr + Offsets::Player::TeamColor);
+                int otherTeam = g_proc->read<int>(entry.addr + Offsets::Player::TeamColor);
+                if (localTeam != 0 && localTeam == otherTeam)
+                    continue;
             }
-            float hp = g_proc->read<float>(t.humanoidAddr + Offsets::Humanoid::Health);
+
+            // alive check
+            node humanoid = find_live_humanoid(character);
+            if (!humanoid)
+                continue;
+            float hp = g_proc->read<float>(humanoid.addr + Offsets::Humanoid::Health);
             if (!health::check(hp))
                 continue;
-            math::vec3 pos = g_proc->read<math::vec3>(t.targetPrim + Offsets::Primitive::Position);
+
+            // get target part
+            node part = get_target_part(character, wantPart);
+            if (!part)
+                continue;
+            uintptr_t prim = part.primitive();
+            if (!prim)
+                continue;
+
+            math::vec3 pos = g_proc->read<math::vec3>(prim + Offsets::Primitive::Position);
             if (pos.x == 0.0f && pos.y == 0.0f && pos.z == 0.0f)
                 continue;
 
-            tracking::push(t.playerAddr, pos.x, pos.y, pos.z);
-
-            if (!distance::check(pos, camPos))
-                continue;
+            // project to screen
             math::vec2 s{};
             if (!projection::to_screen(pos, view, static_cast<float>(w), static_cast<float>(h), s))
                 continue;
+
             float dx = s.x - cx;
             float dy = s.y - cy;
             float d = sqrtf(dx * dx + dy * dy);
-            float hbScale = hitbox::get_scale();
-            if (hbScale > 1.0f) d /= hbScale;
+
             if (d < bestDist)
             {
                 bestDist = d;
-                best = pos;
-                bestPlayer = t.playerAddr;
+                bestWorld = pos;
+                bestScreen = s;
+                bestPlayer = entry.addr;
                 found = true;
             }
         }
 
         if (!found)
         {
-            s_inDeadzone = false;
-            s_dzPlayer = 0;
             s_remX = 0.0f;
             s_remY = 0.0f;
             rpbrx::aim::clear_debug_target();
             return;
         }
-        if (bestPlayer != s_dzPlayer)
-        {
-            s_inDeadzone = false;
-            s_dzPlayer = bestPlayer;
-        }
 
-        if (settings::aim_deadzone_enabled)
-        {
-            int dzMin = settings::aim_deadzone_min;
-            int dzMax = settings::aim_deadzone_max;
-            if (dzMin < 0) dzMin = 0;
-            if (dzMax < dzMin) dzMax = dzMin;
-            if (!s_inDeadzone && bestDist <= (float)dzMin)
-                s_inDeadzone = true;
-            else if (s_inDeadzone && bestDist > (float)dzMax)
-                s_inDeadzone = false;
-            if (s_inDeadzone)
-                return;
-        }
-        else
-        {
-            s_inDeadzone = false;
-        }
+        rpbrx::aim::set_debug_target(bestWorld, bestPlayer);
 
-        {
-            float scanDt = 0.004f;
-            float smoothLag = 0.0f;
-            if (settings::aim_smoothing_enabled)
-            {
-                float sx = settings::aim_smoothing_x;
-                if (sx < 1.0f) sx = 1.0f;
-                smoothLag = (sx - 1.0f) * scanDt;
-            }
-            float leadT = scanDt + smoothLag;
-
-            tracking::Velocity tv{};
-            if (bestPlayer && tracking::sample(bestPlayer, tv))
-            {
-                float damp = tv.damp;
-                float airDampY = tv.airborne ? 0.35f : 1.0f;
-                math::vec3 lv = g_ctx.local_velocity;
-                best.x += (tv.vx - lv.x) * leadT * damp;
-                best.y += (tv.vy - lv.y) * leadT * damp * airDampY;
-                best.z += (tv.vz - lv.z) * leadT * damp;
-            }
-        }
-
-        rpbrx::aim::set_debug_target(best, bestPlayer);
-
-        math::vec2 targetScreen{};
-        if (!projection::to_screen(best, view, static_cast<float>(w), static_cast<float>(h), targetScreen))
-            return;
-
-        float dx = targetScreen.x - cx;
-        float dy = targetScreen.y - cy;
+        // compute pixel delta from center to target
+        float dx = bestScreen.x - cx;
+        float dy = bestScreen.y - cy;
 
         if (!std::isfinite(dx) || !std::isfinite(dy))
             return;
-        if (fabsf(dx) > (float)w || fabsf(dy) > (float)h)
+        if (fabsf(dx) > static_cast<float>(w) || fabsf(dy) > static_cast<float>(h))
             return;
 
-        if (settings::aim_smoothing_enabled)
-        {
-            float sx = settings::aim_smoothing_x;
-            float sy = settings::aim_smoothing_y;
-            if (sx < 1.0f) sx = 1.0f;
-            if (sy < 1.0f) sy = 1.0f;
-            dx /= sx;
-            dy /= sy;
-        }
+        // catsix smoothing: scale by min(speed * dt, 1.0), divide by smoothing factor
+        float speed = settings::aim_speed;
+        float factor = std::min(speed * dt, 1.0f);
+        dx *= factor;
+        dy *= factor;
 
         send_mouse_move(dx, dy);
     }

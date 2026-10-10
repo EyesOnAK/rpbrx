@@ -8,13 +8,6 @@
 #include "../utility/struct/offsets.h"
 #include "../utility/global/globals.h"
 #include "../features/visual/core/visual.h"
-#include "../features/visual/world/ore.h"
-#include "../features/visual/world/plants.h"
-#include "../features/visual/world/bots.h"
-#include "../features/visual/world/animals.h"
-#include "../features/visual/world/tools.h"
-#include "../features/visual/world/crates.h"
-#include "../features/visual/world/keycards.h"
 #include "../features/aim/core/aim.h"
 #include "../features/misc/core/misc.h"
 #include <cmath>
@@ -36,66 +29,28 @@ static void PrintDebugLines(float fps)
     size_t plCount = g_ctx.player_list().size();
     math::vec3 pos = g_ctx.local_pos;
 
-    LOGF("debug", "FPS: %5.1f | PID: %u Base: 0x%llX | DM: 0x%llX WS: 0x%llX | Players(%s): %zu (0x%llX) | Local: %s | Pos: (%.1f, %.1f, %.1f) Speed: %.1f | Ready: %d",
+    LOGF("debug", "FPS: %5.1f | PID: %u Base: 0x%llX | DM: 0x%llX WS: 0x%llX | Players(%s): %zu (0x%llX) | Local: %s | Pos: (%.1f, %.1f, %.1f) | Ready: %d",
         fps, pid, (unsigned long long)base, (unsigned long long)dm, (unsigned long long)ws,
         plName.c_str(), plCount, (unsigned long long)pl,
-        lpName.c_str(), pos.x, pos.y, pos.z, g_localSpeed, g_ctx.ready ? 1 : 0);
+        lpName.c_str(), pos.x, pos.y, pos.z, g_ctx.ready ? 1 : 0);
 }
 
 static bool NeedsGameData()
 {
     using namespace rpbrx;
     return settings::aim_enabled
-        || settings::aim_autoshoot
-        || settings::aim_show_fov
-        || settings::box_enabled
-        || settings::skeleton_enabled
+        || settings::esp_enabled
         || settings::health_enabled
-        || settings::name_enabled
-        || settings::headdot_enabled
-        || settings::distance_enabled
-        || settings::tool_enabled
-        || settings::flags_team
-        || settings::flags_state
-        || settings::flags_health
-        || settings::tracer_enabled
-        || settings::oof_enabled
-        || settings::walkspeed_enabled
-        || settings::jumppower_enabled
-        || settings::fov_enabled
-        || settings::noclip_enabled
-         || settings::freecam_enabled
-         || settings::hipheight_enabled
-        || settings::infjump_enabled
-        || settings::hitsound_enabled
-        || settings::time_enabled
-        || settings::world_fog_enabled
-        || settings::world_exposure_enabled
-        || settings::world_ore_enabled
-        || settings::world_plant_enabled
-        || settings::world_bots_enabled
-        || settings::world_animals_enabled
-        || settings::world_tools_enabled
-        || settings::world_crates_enabled
-        || settings::world_keycards_enabled
-        || settings::hitbox_enabled
+        || settings::skeleton_enabled
         || settings::chams_enabled
-        || settings::whitehits_enabled
-        || settings::footsteps_enabled
-        || settings::targethud_enabled
+        || settings::name_enabled
         || settings::kitesp_enabled
-        || settings::tickrate_enabled
-        || settings::speed_enabled;
-}
-
-static bool AnyGameFeatureActive()
-{
-    using namespace rpbrx;
-    if (NeedsGameData())
-        return true;
-    return Menu::g_movement
-            || Menu::g_explorerOpen
-            || Menu::g_playerPreviewOpen;
+        || settings::whitehits_enabled
+        || settings::fov_enabled
+        || settings::tracer_enabled
+        || settings::tool_enabled
+        || settings::headdot_enabled
+        || settings::footsteps_enabled;
 }
 
 void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool menuOpen)
@@ -105,11 +60,9 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
 
     static double lastAttachTry = -10.0;
     static double lastRefresh = -10.0;
-    static double lastPfCache = -10.0;
     double now = ImGui::GetTime();
 
     bool needGame = NeedsGameData();
-    bool overlayActive = needGame || Menu::g_movement || Menu::g_explorerOpen || Menu::g_playerPreviewOpen;
 
     static LARGE_INTEGER qpf{};
     if (!qpf.QuadPart) QueryPerformanceFrequency(&qpf);
@@ -128,32 +81,13 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
     }
     else if (needGame)
     {
-
         if (now - lastRefresh >= 0.008)
         {
             lastRefresh = now;
-
             rpbrx::g_ctx.refresh();
-
-            rpbrx::math::vec3 lv = rpbrx::g_ctx.local_velocity;
-            bool ok = rpbrx::g_ctx.ready && rpbrx::g_ctx.local_root
-                      && std::isfinite(lv.x) && std::isfinite(lv.y) && std::isfinite(lv.z);
-            g_localSpeed = ok ? sqrtf(lv.x * lv.x + lv.z * lv.z) : -1.0f;
         }
     }
-    else
-    {
-        g_localSpeed = -1.0f;
-    }
     Menu::g_dbgMsRefresh = qema(Menu::g_dbgMsRefresh, qms(t0));
-
-    t0 = qnow();
-    if (rpbrx::g_proc && rpbrx::g_proc->connected() && now - lastPfCache >= 0.016)
-    {
-        lastPfCache = now;
-        PfCache::update();
-    }
-    Menu::g_dbgMsPf = qema(Menu::g_dbgMsPf, qms(t0));
 
     {
         using namespace rpbrx;
@@ -215,7 +149,6 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
             }
             else if (place != 0 && dmAddr != 0 && dmAddr != s_dm)
             {
-
                 s_dm = dmAddr; s_zeroCount = 0;
                 rpbrx::visual::on_game_joined();
                 char jb[128];
@@ -242,10 +175,8 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
         }
     }
 
-    bool anythingToDraw = g_menuOpen || Menu::g_watermark || Menu::g_keybinds
-                          || Menu::g_movement || Menu::g_internalDebug || overlayActive;
+    bool anythingToDraw = g_menuOpen || Menu::g_watermark || needGame;
     Overlay::SetRenderEnabled(anythingToDraw);
-
     Overlay::SetFrameInterval(0.0f);
 
     static double lastDebugBuild = -10.0;
@@ -259,15 +190,10 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
 
     t0 = qnow();
     Menu::RenderWatermark(dl, width, fps);
-    Menu::RenderKeybinds(dl, width, height);
-    Menu::RenderMovement(dl, width, height);
-    Menu::RenderInternalDebug(dl, width, height, fps);
     Menu::RenderNavBar(dl, width, height);
     Menu::Render();
     Menu::RenderSettingsPanel();
     Menu::RenderThemePanel();
-    Menu::RenderExplorerPanel();
-    Menu::RenderPlayerPreviewPanel();
     Menu::g_dbgMsMenu = qema(Menu::g_dbgMsMenu, qms(t0));
 
     t0 = qnow();
@@ -275,24 +201,7 @@ void rpbrx::frame::tick(ImDrawList* dl, int width, int height, float fps, bool m
     {
         rpbrx::aim::run(width, height);
         rpbrx::visual::render(dl, width, height);
-        rpbrx::ore::tick(dl, width, height);
-        rpbrx::plants::tick(dl, width, height);
-        rpbrx::bots::tick(dl, width, height);
-        rpbrx::animals::tick(dl, width, height);
-        rpbrx::tools::tick(dl, width, height);
-        rpbrx::crates::tick(dl, width, height);
-        rpbrx::keycards::tick(dl, width, height);
+        rpbrx::misc::run();
     }
     Menu::g_dbgMsAim = qema(Menu::g_dbgMsAim, qms(t0));
-
-    t0 = qnow();
-    if (needGame)
-    {
-        rpbrx::visual::render(dl, width, height);
-    }
-    Menu::g_dbgMsVisual = qema(Menu::g_dbgMsVisual, qms(t0));
-
-    t0 = qnow();
-    rpbrx::misc::run();
-    Menu::g_dbgMsMisc = qema(Menu::g_dbgMsMisc, qms(t0));
 }

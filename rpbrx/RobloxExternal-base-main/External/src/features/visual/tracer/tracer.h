@@ -3,5 +3,6 @@
 
 namespace rpbrx::visual::tracer
 {
-    void draw(ImDrawList* dl, float x0, float y0, float x1, float y1, ImU32 col, bool outline, ImU32 outlineCol, float thickness, int screenW, int screenH, int origin = 0);
+    // Draw a line from (startX,startY) to (endX,endY)
+    void draw(ImDrawList* dl, float startX, float startY, float endX, float endY, ImU32 col, float thickness = 1.0f);
 }

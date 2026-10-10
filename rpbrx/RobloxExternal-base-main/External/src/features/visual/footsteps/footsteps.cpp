@@ -23,7 +23,7 @@ namespace rpbrx::visual::footsteps
         if (std::chrono::duration<float>(now - g_lastAdd).count() < 0.15f) return;
         g_lastAdd = now;
 
-        if ((int)g_marks.size() >= settings::footsteps_max) {
+        if ((int)g_marks.size() >= (int)settings::footsteps_max) {
             g_marks.erase(g_marks.begin());
         }
         g_marks.push_back({ footPos, now });
