@@ -3597,7 +3597,7 @@ inline void Render()
 
         ImFont* tab_font = g_fontSmall ? g_fontSmall : ImGui::GetFont();
         const int kTabCount = 2;
-        const char* sections[] = { "Combat", "Visuals" };
+        const char* sections[] = { "Combat", "Render" };
         const float tab_h = 22.0f;
         const float tab_top_y = inner_pos.y - tab_h;
         const float pad_x = 8.0f;
@@ -3671,7 +3671,7 @@ inline void Render()
         else if (g_activeTab == 1)
         {
             DrawGroupBox(dl, left_min, left_max, "player esp", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
-            DrawGroupBox(dl, right_min, right_max, "effects & info", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
+            DrawGroupBox(dl, right_min, right_max, "effects & world", tab_font, 13.0f, col_bg_group, col_highlight, col_outline);
         }
 
         bool cb_hov = false;
@@ -3752,8 +3752,18 @@ inline void Render()
                 ry += 33.0f;
             }
 
-            // Global Visual Team Check
-            cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::vis_team_check, "Global Team Check", tab_font, 13.0f);
+            // Global Visual Team Check — syncs all per-feature team checks
+            {
+                bool prev = S::vis_team_check;
+                cb_hov |= DrawCheckbox(dl, ImVec2(right_min.x + 14.0f, ry), &S::vis_team_check, "Global Team Check", tab_font, 13.0f);
+                if (S::vis_team_check != prev) {
+                    S::aim_team_check = S::vis_team_check;
+                    S::esp_team_check = S::vis_team_check;
+                    S::tracer_team_check = S::vis_team_check;
+                    S::name_team_check = S::vis_team_check;
+                    S::chams_team_check = S::vis_team_check;
+                }
+            }
             ry += kCheckRowPitch;
         }
         // ===== TAB 1: VISUALS =====
@@ -3823,14 +3833,14 @@ inline void Render()
             cb_hov |= DrawCheckbox(dl, ImVec2(left_min.x + 14.0f, y), &S::esp_distance_check, "Distance Check", tab_font, 13.0f);
             {
                 QuestionItem dist_items[] = {
-                    MakeQSliderFloat("##q_espdistmin", "Min Range", &S::esp_distance_min, 0.0f, 500.0f, "%.0f"),
-                    MakeQSliderFloat("##q_espdistmax", "Max Range", &S::esp_distance_max, 0.0f, 500.0f, "%.0f")
+                    MakeQSliderFloat("##q_espdistmin", "Min Range", &S::esp_distance_min, 0.0f, 256.0f, "%.0f"),
+                    MakeQSliderFloat("##q_espdistmax", "Max Range", &S::esp_distance_max, 0.0f, 256.0f, "%.0f")
                 };
                 kb_hov |= DrawQuestionButton("##qb_espdist", dl, ImVec2(left_max.x - 14.0f, y), dist_items, 2, tab_font, 13.0f);
             }
             y += kCheckRowPitch;
 
-            // -- RIGHT GROUP: Effects & Info --
+            // -- RIGHT GROUP: Effects & World --
             float ry = right_min.y + 20.0f;
 
             // Nametags
@@ -3840,13 +3850,18 @@ inline void Render()
             {
                 QuestionItem name_items[] = {
                     MakeQSliderFloat("##q_namescale", "Scale", &S::name_scale, 0.1f, 1.5f, "%.1f"),
+                    MakeQSliderFloat("##q_nametrans", "Transparency", &S::name_bg_transparency, 0.0f, 1.0f, "%.2f"),
                     MakeQCheckbox("SHOW HEALTH", &S::name_show_health),
                     MakeQCheckbox("SHOW DISTANCE", &S::name_show_distance),
                     MakeQCheckbox("DISPLAY NAME", &S::name_use_displayname),
                     MakeQCheckbox("BACKGROUND", &S::name_show_background),
-                    MakeQCheckbox("SHOW TOOL", &S::name_show_tool)
+                    MakeQCheckbox("SHOW TOOL", &S::name_show_tool),
+                    MakeQCheckbox("TEAM CHECK", &S::name_team_check),
+                    MakeQCheckbox("DISTANCE CHECK", &S::name_distance_check),
+                    MakeQSliderFloat("##q_namedistmin", "Min Range", &S::name_distance_min, 0.0f, 256.0f, "%.0f", &S::name_distance_check),
+                    MakeQSliderFloat("##q_namedistmax", "Max Range", &S::name_distance_max, 0.0f, 256.0f, "%.0f", &S::name_distance_check)
                 };
-                kb_hov |= DrawQuestionButton("##qb_name", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), name_items, 6, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_name", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), name_items, 11, tab_font, 13.0f);
             }
             ry += kCheckRowPitch;
 
@@ -3876,11 +3891,15 @@ inline void Render()
                 QuestionItem tracer_items[] = {
                     MakeQDropdownSingle("##q_tracerstart", "Start", &S::tracer_start, kTracerStartItems, 3),
                     MakeQDropdownSingle("##q_tracerend", "End", &S::tracer_end, kTracerEndItems, 2),
+                    MakeQSliderFloat("##q_tracertrans", "Transparency", &S::tracer_transparency, 0.0f, 1.0f, "%.2f"),
                     MakeQCheckbox("COLOR BY DIST", &S::tracer_color_by_distance),
                     MakeQCheckbox("SHOW BEHIND", &S::tracer_behind),
-                    MakeQCheckbox("TEAM CHECK", &S::tracer_team_check)
+                    MakeQCheckbox("TEAM CHECK", &S::tracer_team_check),
+                    MakeQCheckbox("DISTANCE CHECK", &S::tracer_distance_check),
+                    MakeQSliderFloat("##q_tracerdistmin", "Min Range", &S::tracer_distance_min, 0.0f, 256.0f, "%.0f", &S::tracer_distance_check),
+                    MakeQSliderFloat("##q_tracerdistmax", "Max Range", &S::tracer_distance_max, 0.0f, 256.0f, "%.0f", &S::tracer_distance_check)
                 };
-                kb_hov |= DrawQuestionButton("##qb_tracer", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), tracer_items, 5, tab_font, 13.0f);
+                kb_hov |= DrawQuestionButton("##qb_tracer", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), tracer_items, 9, tab_font, 13.0f);
             }
             ry += kCheckRowPitch;
 
@@ -3926,13 +3945,13 @@ inline void Render()
                     MakeQCheckbox("SHOW DISTANCE", &S::kitesp_show_distance),
                     MakeQCheckbox("BACKGROUND", &S::kitesp_background),
                     MakeQCheckbox("ALCHEMIST", &S::kitesp_alchemist),
-                    MakeQCheckbox("BEE", &S::kitesp_bee),
-                    MakeQCheckbox("BIGMAN", &S::kitesp_bigman),
-                    MakeQCheckbox("GHOST", &S::kitesp_ghost),
-                    MakeQCheckbox("METAL", &S::kitesp_metal),
-                    MakeQCheckbox("SHEEP", &S::kitesp_sheep),
+                    MakeQCheckbox("BEEKEEPER", &S::kitesp_bee),
+                    MakeQCheckbox("ELDER TREE", &S::kitesp_bigman),
+                    MakeQCheckbox("GHOST CATCHER", &S::kitesp_ghost),
+                    MakeQCheckbox("METAL DETECTOR", &S::kitesp_metal),
+                    MakeQCheckbox("SHEEP HERDER", &S::kitesp_sheep),
                     MakeQCheckbox("SORCERER", &S::kitesp_sorcerer),
-                    MakeQCheckbox("STAR", &S::kitesp_star)
+                    MakeQCheckbox("STAR COLLECTOR", &S::kitesp_star)
                 };
                 kb_hov |= DrawQuestionButton("##qb_kitesp", dl, ImVec2(right_max.x - qb_single_swatch_off, ry), ke_items, 11, tab_font, 13.0f);
             }
