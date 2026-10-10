@@ -187,7 +187,7 @@ namespace rpbrx::aim::mouse
 
         // catsix smoothing: scale by min(speed * dt, 1.0), divide by smoothing factor
         float speed = settings::aim_speed;
-        float factor = std::min(speed * dt, 1.0f);
+        float factor = (std::min)(speed * dt, 1.0f);
         dx *= factor;
         dy *= factor;
 
